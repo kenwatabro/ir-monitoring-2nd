@@ -1,0 +1,124 @@
+financial:
+  fields:
+    net_sales:
+      label_ja: "売上高"
+      mode: current
+      local_names:
+        - NetSalesSummaryOfBusinessResults
+    ordinary_income:
+      label_ja: "経常利益"
+      mode: current
+      local_names:
+        - OrdinaryIncomeLossSummaryOfBusinessResults
+    net_income:
+      label_ja: "当期純利益"
+      mode: current
+      local_names:
+        - NetIncomeLossSummaryOfBusinessResults
+    eps:
+      label_ja: "EPS（一株当たり当期純利益）"
+      mode: current
+      local_names:
+        - EarningsPerShareSummaryOfBusinessResults
+        - BasicEarningsLossPerShareSummaryOfBusinessResults
+
+cash_flow:
+  fields:
+    operating_cf:
+      label_ja: "営業活動によるキャッシュ・フロー"
+      mode: current
+      local_names:
+        - NetCashProvidedByUsedInOperatingActivitiesSummaryOfBusinessResults
+        - NetCashProvidedByUsedInOperatingActivities
+    investing_cf:
+      label_ja: "投資活動によるキャッシュ・フロー"
+      mode: current
+      local_names:
+        - NetCashProvidedByUsedInInvestingActivitiesSummaryOfBusinessResults
+        - NetCashProvidedByUsedInInvestmentActivities
+    financing_cf:
+      label_ja: "財務活動によるキャッシュ・フロー"
+      mode: current
+      local_names:
+        - NetCashProvidedByUsedInFinancingActivitiesSummaryOfBusinessResults
+        - NetCashProvidedByUsedInFinancingActivities
+    net_change_in_cash:
+      label_ja: "現金及び現金同等物の増減額"
+      mode: current
+      local_names:
+        - NetIncreaseDecreaseInCashAndCashEquivalents
+    cash_and_equivalents_begin:
+      label_ja: "現金及び現金同等物の期首残高"
+      mode: instant_prior1
+      local_names:
+        - CashAndCashEquivalentsSummaryOfBusinessResults
+        - CashAndCashEquivalents
+    cash_and_equivalents_end:
+      label_ja: "現金及び現金同等物の期末残高"
+      mode: instant_current
+      local_names:
+        - CashAndCashEquivalentsSummaryOfBusinessResults
+        - CashAndCashEquivalents
+
+balance_sheet:
+  fields:
+    total_assets:
+      label_ja: "総資産"
+      mode: instant_current
+      local_names:
+        - TotalAssetsSummaryOfBusinessResults
+        - Assets
+        - TotalAssets
+    current_assets:
+      label_ja: "流動資産"
+      mode: instant_current
+      local_names:
+        - CurrentAssets
+    noncurrent_assets:
+      label_ja: "固定資産"
+      mode: instant_current
+      local_names:
+        - NoncurrentAssets
+    cash_and_deposits:
+      label_ja: "現金及び預金"
+      mode: instant_current
+      local_names:
+        - CashAndDeposits
+    net_assets:
+      label_ja: "純資産"
+      mode: instant_current
+      local_names:
+        - NetAssetsSummaryOfBusinessResults
+        - NetAssets
+    shareholders_equity:
+      label_ja: "株主資本"
+      mode: instant_current
+      local_names:
+        - ShareholdersEquity
+    total_liabilities:
+      label_ja: "負債合計"
+      mode: instant_current
+      local_names:
+        - Liabilities
+    current_liabilities:
+      label_ja: "流動負債"
+      mode: instant_current
+      local_names:
+        - CurrentLiabilities
+    noncurrent_liabilities:
+      label_ja: "固定負債"
+      mode: instant_current
+      local_names:
+        - NoncurrentLiabilities
+    equity_ratio:
+      label_ja: "自己資本比率"
+      mode: instant_current
+      local_names:
+        - EquityToAssetRatioSummaryOfBusinessResults
+    net_assets_per_share:
+      label_ja: "1株当たり純資産"
+      mode: instant_current
+      local_names:
+        - NetAssetsPerShareSummaryOfBusinessResults
+
+
