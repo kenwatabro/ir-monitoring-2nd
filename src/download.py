@@ -5,13 +5,11 @@ from __future__ import annotations
 import argparse
 from datetime import date
 from pathlib import Path
-from typing import Iterable
-import xml.etree.ElementTree as ET
-import zipfile
 
 from dotenv import load_dotenv
 
 from .downloader.edinet_downloader import EdinetDownloader
+from .ingest.edinet_metadata import upsert_edinet_documents
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -52,6 +50,10 @@ def main(argv: list[str] | None = None) -> int:
     downloader = EdinetDownloader(start_date=start_date, end_date=end_date)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     docs = downloader.download(output_dir=args.output_dir)
+
+    if args.database_url:
+        # EDINET APIのメタデータを edinet_documents に保存しておく
+        upsert_edinet_documents(docs, dsn=args.database_url)
 
     print(f"Downloaded {len(docs)} document(s)")
 

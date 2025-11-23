@@ -41,6 +41,22 @@ CREATE INDEX IF NOT EXISTS idx_filings_company_period_end
     ON filings (company_id, period_end);
 
 
+-- 2b. edinet_documents: EDINET API documents.json メタデータ
+CREATE TABLE IF NOT EXISTS edinet_documents (
+    doc_id        VARCHAR(64) PRIMARY KEY, -- EDINETのdocID (例: S100NS9Y)
+    sec_code      VARCHAR(16),            -- 証券コード（銘柄コード）
+    filer_name    TEXT,                   -- 提出者名
+    doc_type_code VARCHAR(8),             -- EDINET docTypeCode (120=有報,130=四半期 等)
+    period_start  DATE,
+    period_end    DATE,
+    submit_date   DATE,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_edinet_documents_sec_code
+    ON edinet_documents (sec_code);
+
+
 -- 3. statements: BS / PL / CF などのステートメント単位
 CREATE TABLE IF NOT EXISTS statements (
     id              BIGSERIAL PRIMARY KEY,
