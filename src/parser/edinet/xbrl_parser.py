@@ -18,6 +18,7 @@ class FinancialSummary(BaseSummary):
     """売上高・経常利益・当期純利益・EPS などの決算サマリー."""
 
     net_sales: Optional[float] = None
+    operating_income: Optional[float] = None
     ordinary_income: Optional[float] = None
     net_income: Optional[float] = None
     eps: Optional[float] = None
@@ -55,6 +56,7 @@ class FinancialSummary(BaseSummary):
 
         return cls(
             net_sales=_pick("net_sales"),
+            operating_income=_pick("operating_income"),
             ordinary_income=_pick("ordinary_income"),
             net_income=_pick("net_income"),
             eps=_pick("eps"),
