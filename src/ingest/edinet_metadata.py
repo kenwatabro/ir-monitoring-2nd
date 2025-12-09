@@ -23,8 +23,11 @@ def _parse_date(value: Any) -> Optional[str]:
 
 
 def _build_rows(docs: Iterable[Dict[str, Any]]) -> List[Tuple]:
-    """edinet_documents テーブル向けの行タプルを生成する."""
-    rows: List[Tuple] = []
+    """edinet_documents テーブル向けの行タプルを生成する.
+
+    同じ doc_id が複数回出現した場合は後のものを優先する（重複排除）。
+    """
+    rows_by_doc_id: Dict[str, Tuple] = {}
     for doc in docs:
         doc_id = doc.get("docID")
         if not doc_id:
@@ -36,18 +39,16 @@ def _build_rows(docs: Iterable[Dict[str, Any]]) -> List[Tuple]:
         period_end = _parse_date(doc.get("periodEnd"))
         submit_date = _parse_date(doc.get("submitDate"))
 
-        rows.append(
-            (
-                doc_id,
-                sec_code,
-                filer_name,
-                doc_type_code,
-                period_start,
-                period_end,
-                submit_date,
-            )
+        rows_by_doc_id[doc_id] = (
+            doc_id,
+            sec_code,
+            filer_name,
+            doc_type_code,
+            period_start,
+            period_end,
+            submit_date,
         )
-    return rows
+    return list(rows_by_doc_id.values())
 
 
 def upsert_edinet_documents(
