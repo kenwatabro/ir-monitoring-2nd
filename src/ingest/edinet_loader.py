@@ -271,7 +271,13 @@ def load_edinet_directory(
     dsn: Optional[str] = None,
     max_files: Optional[int] = None,
 ) -> None:
-    """data/raw/edinet 配下のZIP群をDBにロードする."""
+    """data/raw/edinet 配下のZIP群をDBにロードする.
+
+    Args:
+        edinet_dir: ZIPファイルが格納されたディレクトリ
+        dsn: PostgreSQL接続文字列（省略時は環境変数から取得）
+        max_files: 処理するファイル数の上限（デバッグ用）
+    """
     base_path = Path(edinet_dir)
     cfg = load_edinet_config()
 
@@ -304,7 +310,8 @@ def load_edinet_directory(
 
                     existing_filing_id = _find_existing_filing_id(cur, company_id, edinet_doc_id)
                     if existing_filing_id is not None:
-                        # 既存filingについても、期間情報などは更新しておく
+                        # 既存filingはスキップ（メタデータ更新のみ）
+                        logger.info("Already loaded, skipping: %s", edinet_doc_id)
                         fiscal_year, fiscal_period = _infer_fiscal_info(
                             meta.get("period_start") or "",
                             meta.get("period_end") or "",
