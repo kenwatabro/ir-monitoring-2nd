@@ -156,6 +156,12 @@ def _find_existing_filing_id(cur, company_id: int, edinet_doc_id: str) -> Option
     return int(row[0]) if row else None
 
 
+def _get_existing_doc_ids(cur) -> set[str]:
+    """DBに存在する全ての edinet_doc_id を取得（早期スキップ用）."""
+    cur.execute("SELECT edinet_doc_id FROM filings")
+    return {row[0] for row in cur.fetchall()}
+
+
 def _insert_filing(
     cur,
     company_id: int,
@@ -292,8 +298,18 @@ def load_edinet_directory(
     with get_connection(dsn) as conn:
         conn.autocommit = False
         with conn.cursor() as cur:
+            # 最初に一括で既存IDを取得（ループ内での毎回クエリを回避）
+            existing_doc_ids = _get_existing_doc_ids(cur)
+            logger.info("Found %d existing filings in DB", len(existing_doc_ids))
+
             for idx, zip_path in enumerate(zip_paths, start=1):
                 edinet_doc_id = zip_path.stem
+
+                # 早期スキップ: メモリ上のsetでO(1)チェック
+                if edinet_doc_id in existing_doc_ids:
+                    logger.debug("[%s/%s] Already loaded, skipping: %s", idx, len(zip_paths), edinet_doc_id)
+                    continue
+
                 logger.info("[%s/%s] processing %s", idx, len(zip_paths), edinet_doc_id)
 
                 try:
