@@ -39,8 +39,8 @@ def extract_basic_metadata_from_zip(zip_path: Path) -> Dict[str, str]:
             xbrl_name = find_instance_xbrl_name(zf)
             with zf.open(xbrl_name) as fh:
                 tree = ET.parse(fh)
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("failed to extract metadata from %s: %s", zip_path, exc)
+    except Exception:  # noqa: BLE001
+        # xbrl不在等はサマリーでカウントするのでログは出さない
         return meta
 
     root = tree.getroot()
@@ -379,13 +379,10 @@ def load_edinet_directory(
                     error_count += 1
                     conn.rollback()
 
-            # サマリー出力
-            logger.info(
-                "=== Load Summary: %d loaded, %d skipped (existing), %d skipped (no xbrl), %d errors ===",
-                loaded_count,
-                skipped_existing,
-                skipped_no_xbrl,
-                error_count,
+            # サマリー出力（printで確実に表示）
+            print(
+                f"=== Load Summary: {loaded_count} loaded, {skipped_existing} skipped (existing), "
+                f"{skipped_no_xbrl} skipped (no xbrl), {error_count} errors ==="
             )
 
 
