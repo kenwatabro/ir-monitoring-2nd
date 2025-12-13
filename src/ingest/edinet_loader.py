@@ -159,7 +159,11 @@ def _find_existing_filing_id(cur, company_id: int, edinet_doc_id: str) -> Option
 def _get_existing_doc_ids(cur) -> set[str]:
     """DBに存在する全ての edinet_doc_id を取得（早期スキップ用）."""
     cur.execute("SELECT edinet_doc_id FROM filings")
-    return {row[0] for row in cur.fetchall()}
+    result = {row[0] for row in cur.fetchall()}
+    # #region agent log
+    import json; open("/home/k/projects/ir-monitoring-2nd/.cursor/debug.log", "a").write(json.dumps({"hypothesisId": "A", "location": "edinet_loader.py:_get_existing_doc_ids", "message": "DB existing IDs", "data": {"count": len(result), "sample": list(result)[:5]}, "timestamp": __import__("time").time()}) + "\n")
+    # #endregion
+    return result
 
 
 def _insert_filing(
@@ -302,14 +306,29 @@ def load_edinet_directory(
             existing_doc_ids = _get_existing_doc_ids(cur)
             logger.info("Found %d existing filings in DB", len(existing_doc_ids))
 
+            # #region agent log
+            import json as _json; open("/home/k/projects/ir-monitoring-2nd/.cursor/debug.log", "a").write(_json.dumps({"hypothesisId": "B", "location": "edinet_loader.py:load_main", "message": "ZIP files info", "data": {"zip_count": len(zip_paths), "zip_samples": [p.stem for p in zip_paths[:5]]}, "timestamp": __import__("time").time()}) + "\n")
+            # #endregion
+
+            skipped_count = 0
+            processed_count = 0
+
             for idx, zip_path in enumerate(zip_paths, start=1):
                 edinet_doc_id = zip_path.stem
 
                 # 早期スキップ: メモリ上のsetでO(1)チェック
                 if edinet_doc_id in existing_doc_ids:
+                    skipped_count += 1
+                    # #region agent log
+                    if skipped_count <= 3: open("/home/k/projects/ir-monitoring-2nd/.cursor/debug.log", "a").write(_json.dumps({"hypothesisId": "C", "location": "edinet_loader.py:skip_check", "message": "Skipped", "data": {"doc_id": edinet_doc_id, "in_db": True}, "timestamp": __import__("time").time()}) + "\n")
+                    # #endregion
                     logger.debug("[%s/%s] Already loaded, skipping: %s", idx, len(zip_paths), edinet_doc_id)
                     continue
 
+                processed_count += 1
+                # #region agent log
+                if processed_count <= 3: open("/home/k/projects/ir-monitoring-2nd/.cursor/debug.log", "a").write(_json.dumps({"hypothesisId": "D", "location": "edinet_loader.py:process", "message": "Processing", "data": {"doc_id": edinet_doc_id}, "timestamp": __import__("time").time()}) + "\n")
+                # #endregion
                 logger.info("[%s/%s] processing %s", idx, len(zip_paths), edinet_doc_id)
 
                 try:
@@ -370,6 +389,10 @@ def load_edinet_directory(
                 except Exception:  # noqa: BLE001
                     logger.exception("failed to load %s; rolling back", zip_path)
                     conn.rollback()
+
+            # #region agent log
+            open("/home/k/projects/ir-monitoring-2nd/.cursor/debug.log", "a").write(_json.dumps({"hypothesisId": "E", "location": "edinet_loader.py:summary", "message": "Loop finished", "data": {"skipped": skipped_count, "processed": processed_count, "total_zips": len(zip_paths), "db_existing": len(existing_doc_ids)}, "timestamp": __import__("time").time()}) + "\n")
+            # #endregion
 
 
 
