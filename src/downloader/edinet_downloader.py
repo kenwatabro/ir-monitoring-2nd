@@ -69,6 +69,14 @@ class EdinetDownloader(BaseDownloader):
             logger.warning("Skipping document without docID: %s", doc)
             return None
 
+        filename = f"{doc_id}.zip"
+        dest_path = output_dir / filename
+
+        # 既存ファイルがあればスキップ
+        if dest_path.exists():
+            logger.info("Already exists, skipping download: %s", doc_id)
+            return dest_path
+
         params = {
             "type": 1,  # ZIP(XBRL一式)
             "Subscription-Key": self.api_key,
@@ -80,12 +88,11 @@ class EdinetDownloader(BaseDownloader):
             return None
         resp.raise_for_status()
 
-        filename = f"{doc_id}.zip"
-        dest_path = output_dir / filename
         with open(dest_path, "wb") as fh:
             for chunk in resp.iter_content(chunk_size=1024 * 128):
                 if chunk:
                     fh.write(chunk)
+        logger.info("Downloaded: %s", doc_id)
         return dest_path
 
 

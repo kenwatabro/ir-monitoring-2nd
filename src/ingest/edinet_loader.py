@@ -39,8 +39,8 @@ def extract_basic_metadata_from_zip(zip_path: Path) -> Dict[str, str]:
             xbrl_name = find_instance_xbrl_name(zf)
             with zf.open(xbrl_name) as fh:
                 tree = ET.parse(fh)
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("failed to extract metadata from %s: %s", zip_path, exc)
+    except Exception:  # noqa: BLE001
+        # xbrl不在等はサマリーでカウントするのでログは出さない
         return meta
 
     root = tree.getroot()
@@ -154,6 +154,12 @@ def _find_existing_filing_id(cur, company_id: int, edinet_doc_id: str) -> Option
     )
     row = cur.fetchone()
     return int(row[0]) if row else None
+
+
+def _get_existing_doc_ids(cur) -> set[str]:
+    """DBに存在する全ての edinet_doc_id を取得（早期スキップ用）."""
+    cur.execute("SELECT edinet_doc_id FROM filings")
+    return {row[0] for row in cur.fetchall()}
 
 
 def _insert_filing(
@@ -271,7 +277,13 @@ def load_edinet_directory(
     dsn: Optional[str] = None,
     max_files: Optional[int] = None,
 ) -> None:
-    """data/raw/edinet 配下のZIP群をDBにロードする."""
+    """data/raw/edinet 配下のZIP群をDBにロードする.
+
+    Args:
+        edinet_dir: ZIPファイルが格納されたディレクトリ
+        dsn: PostgreSQL接続文字列（省略時は環境変数から取得）
+        max_files: 処理するファイル数の上限（デバッグ用）
+    """
     base_path = Path(edinet_dir)
     cfg = load_edinet_config()
 
@@ -286,8 +298,24 @@ def load_edinet_directory(
     with get_connection(dsn) as conn:
         conn.autocommit = False
         with conn.cursor() as cur:
+            # 最初に一括で既存IDを取得（ループ内での毎回クエリを回避）
+            existing_doc_ids = _get_existing_doc_ids(cur)
+            logger.info("Found %d existing filings in DB, %d ZIP files to check", len(existing_doc_ids), len(zip_paths))
+
+            # サマリー用カウンター
+            skipped_existing = 0
+            skipped_no_xbrl = 0
+            loaded_count = 0
+            error_count = 0
+
             for idx, zip_path in enumerate(zip_paths, start=1):
                 edinet_doc_id = zip_path.stem
+
+                # 早期スキップ: メモリ上のsetでO(1)チェック
+                if edinet_doc_id in existing_doc_ids:
+                    skipped_existing += 1
+                    continue
+
                 logger.info("[%s/%s] processing %s", idx, len(zip_paths), edinet_doc_id)
 
                 try:
@@ -304,7 +332,8 @@ def load_edinet_directory(
 
                     existing_filing_id = _find_existing_filing_id(cur, company_id, edinet_doc_id)
                     if existing_filing_id is not None:
-                        # 既存filingについても、期間情報などは更新しておく
+                        # 既存filingはスキップ（メタデータ更新のみ）
+                        logger.info("Already loaded, skipping: %s", edinet_doc_id)
                         fiscal_year, fiscal_period = _infer_fiscal_info(
                             meta.get("period_start") or "",
                             meta.get("period_end") or "",
@@ -340,13 +369,21 @@ def load_edinet_directory(
                     _insert_statements_and_items(cur, filing_id, cfg, fs, cf, bs)
 
                     conn.commit()
+                    loaded_count += 1
                 except FileNotFoundError:
                     # ZIP 内に .xbrl がない等
-                    logger.warning("no .xbrl found in %s; skipping", zip_path)
+                    skipped_no_xbrl += 1
                     conn.rollback()
                 except Exception:  # noqa: BLE001
                     logger.exception("failed to load %s; rolling back", zip_path)
+                    error_count += 1
                     conn.rollback()
+
+            # サマリー出力（printで確実に表示）
+            print(
+                f"=== Load Summary: {loaded_count} loaded, {skipped_existing} skipped (existing), "
+                f"{skipped_no_xbrl} skipped (no xbrl), {error_count} errors ==="
+            )
 
 
 
