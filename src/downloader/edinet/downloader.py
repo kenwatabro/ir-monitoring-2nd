@@ -13,7 +13,7 @@ from typing import Any, Dict, List
 
 import requests
 
-from ._base import BaseDownloader
+from src.downloader._base import BaseDownloader
 
 logger = logging.getLogger(__name__)
 DEFAULT_BASE_URL = "https://api.edinet-fsa.go.jp/api/v2"

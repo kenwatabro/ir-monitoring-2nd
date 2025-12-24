@@ -767,12 +767,74 @@ class MyScreener(BaseScreener):
 
 ---
 
-### Phase 4: データソース追加（必要になったら）
+### Phase 4: ディレクトリ構造リファクタリング ✅ 完了
 
-1. 既存の `edinet_downloader.py` → `edinet/downloader.py` へ移動
-2. `src/downloader/factory.py` 作成
-3. 同様に `parser/`, `ingest/` もリファクタ
-4. 新データソース用サブディレクトリ追加
+**目的:** データソースごとにサブディレクトリ化し、Factory パターンで統一APIを提供
+
+**ステータス:** 完了（2024-12）
+
+**完了条件:**
+- [x] `src/downloader/edinet/downloader.py` へ移動 + factory.py 追加
+- [x] `src/ingest/edinet/loader.py`, `metadata.py` へ移動 + factory.py 追加
+- [x] `src/parser/factory.py` 追加
+- [x] 各モジュールに `_base.py` 追加
+- [x] 既存 import を新ディレクトリ構造に修正
+
+**Factory 使用例:**
+
+```python
+from src.downloader import get_downloader, list_sources
+from src.ingest import get_loader
+from src.parser import get_parser
+
+# 利用可能なソース確認
+print(list_sources())  # ['edinet']
+
+# ダウンローダー取得
+downloader = get_downloader("edinet", start_date, end_date)
+downloader.download(output_dir)
+
+# ローダー取得
+loader = get_loader("edinet")
+loader.load_directory(source_dir)
+
+# パーサー取得
+FinancialSummary = get_parser("edinet", "financial")
+summary = FinancialSummary.parse_zip(zip_path)
+```
+
+**新ディレクトリ構造:**
+
+```
+src/
+├── downloader/
+│   ├── __init__.py
+│   ├── _base.py           # BaseDownloader
+│   ├── factory.py         # get_downloader()
+│   └── edinet/
+│       ├── __init__.py
+│       └── downloader.py  # EdinetDownloader
+│
+├── parser/
+│   ├── __init__.py
+│   ├── _base.py           # BaseParser
+│   ├── factory.py         # get_parser()
+│   ├── configs/
+│   └── edinet/
+│       ├── __init__.py
+│       ├── _base.py
+│       ├── utils.py
+│       └── xbrl_parser.py
+│
+└── ingest/
+    ├── __init__.py
+    ├── _base.py           # BaseLoader
+    ├── factory.py         # get_loader()
+    └── edinet/
+        ├── __init__.py
+        ├── loader.py      # EdinetLoader
+        └── metadata.py
+```
 
 ---
 
@@ -812,7 +874,9 @@ class MyScreener(BaseScreener):
 2. [x] `src/query/timeseries.py` 実装 ← Phase 1 完了
 3. [x] `scripts/show_company_report.py` 作成 - 動作確認 ← Phase 2 完了
 4. [x] `src/analytics/registry.py` + `screeners/_base.py` 実装 ← Phase 3 完了
-5. [ ] 既存の `edinet_*` ファイルをサブディレクトリへ移動（Phase 4）
+5. [x] 既存の `edinet_*` ファイルをサブディレクトリへ移動 ← Phase 4 完了
+
+**全フェーズ完了！** アーキテクチャドキュメントと実装が一致しています。
 
 ---
 

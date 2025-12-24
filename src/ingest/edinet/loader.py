@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import logging
-import zipfile
 import xml.etree.ElementTree as ET
+import zipfile
 from datetime import date
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -12,14 +12,14 @@ from typing import Any, Dict, List, Optional, Tuple
 from psycopg2.extras import execute_values
 
 from src.db import get_connection
+from src.ingest._base import BaseLoader
 from src.parser.configs import load_edinet_config
+from src.parser.edinet.utils import find_instance_xbrl_name
 from src.parser.edinet.xbrl_parser import (
     BalanceSheetSummary,
     CashFlowSummary,
     FinancialSummary,
 )
-from src.parser.edinet.utils import find_instance_xbrl_name
-
 
 logger = logging.getLogger(__name__)
 
@@ -280,6 +280,21 @@ def _insert_statements_and_items(
             """,
             items_values,
         )
+
+
+class EdinetLoader(BaseLoader):
+    """EDINET XBRLファイルをDBにロードするローダー."""
+
+    def load_directory(
+        self, source_dir: Path | str, max_files: Optional[int] = None
+    ) -> None:
+        """ディレクトリ内のEDINET ZIPファイルをDBにロードする.
+
+        Args:
+            source_dir: ZIPファイルが格納されたディレクトリ
+            max_files: 処理するファイル数の上限（デバッグ用）
+        """
+        load_edinet_directory(source_dir, dsn=self.dsn, max_files=max_files)
 
 
 def load_edinet_directory(

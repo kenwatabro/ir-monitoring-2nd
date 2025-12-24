@@ -102,12 +102,14 @@ class TestAutoDiscover:
         """組み込みスクリーナーを発見できる.
 
         Note: モジュールが既にインポートされている場合、importlib.import_module は
-        再度デコレータを実行しない。そのため、このテストはモジュールのリロードを
-        行うか、最初のインポート時に登録されていることを確認する。
+        再度デコレータを実行しない。そのため、このテストではモジュールを直接
+        インポートしてデコレータを実行させる。
         """
-        # 新しいプロセスでは clear_registry + auto_discover で動作する
-        # テストスイートでは既にインポートされている可能性があるため、
-        # まず auto_discover を呼んでから確認する
+        # モジュールを直接インポートしてデコレータを実行させる
+        import src.analytics.screeners.growth.eps_growth  # noqa: F401
+        import src.analytics.screeners.growth.revenue_growth  # noqa: F401
+        import src.analytics.screeners.value.profit_margin  # noqa: F401
+
         auto_discover()
 
         screeners = list_screeners()

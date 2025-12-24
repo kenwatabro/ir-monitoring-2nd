@@ -1,5 +1,13 @@
-"""Downloader package exposing the EDINET helpers."""
+"""Downloader package for various data sources."""
 
-from .edinet_downloader import EdinetDownloader
+from ._base import BaseDownloader, DownloadSummary
+from .edinet import EdinetDownloader
+from .factory import get_downloader, list_sources
 
-__all__ = ["EdinetDownloader"]
+__all__ = [
+    "BaseDownloader",
+    "DownloadSummary",
+    "EdinetDownloader",
+    "get_downloader",
+    "list_sources",
+]
