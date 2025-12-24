@@ -1,0 +1,158 @@
+"""Filing（提出書類）のリポジトリ."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import date
+from typing import Optional
+
+from ._base import BaseRepository
+
+
+@dataclass
+class FilingInfo:
+    """提出書類情報."""
+
+    id: int
+    company_id: int
+    edinet_doc_id: str
+    period_start: Optional[date]
+    period_end: Optional[date]
+    fiscal_year: Optional[int]
+    fiscal_period: Optional[str]  # 'FY', 'Q1', 'Q2', 'Q3'
+    is_consolidated: bool
+
+
+class FilingRepository(BaseRepository):
+    """Filing（提出書類）へのアクセスを提供."""
+
+    def find_by_id(self, filing_id: int) -> Optional[FilingInfo]:
+        """Filing IDで検索.
+
+        Args:
+            filing_id: Filing ID
+
+        Returns:
+            Filing情報。見つからない場合は None
+        """
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id, company_id, edinet_doc_id, period_start, period_end,
+                           fiscal_year, fiscal_period, is_consolidated
+                    FROM filings
+                    WHERE id = %s
+                    """,
+                    (filing_id,),
+                )
+                row = cur.fetchone()
+                if row:
+                    return FilingInfo(
+                        id=row[0],
+                        company_id=row[1],
+                        edinet_doc_id=row[2],
+                        period_start=row[3],
+                        period_end=row[4],
+                        fiscal_year=row[5],
+                        fiscal_period=row[6],
+                        is_consolidated=row[7],
+                    )
+        return None
+
+    def list_for_company(
+        self,
+        company_id: int,
+        years: int = 5,
+        fiscal_period: Optional[str] = None,
+    ) -> list[FilingInfo]:
+        """会社IDから Filing 一覧を取得.
+
+        Args:
+            company_id: 会社ID
+            years: 取得する年数（現在から過去N年分）
+            fiscal_period: 期種別でフィルタ（'FY', 'Q1', 'Q2', 'Q3'）。None の場合は全て
+
+        Returns:
+            Filing情報のリスト（period_end 降順）
+        """
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                base_query = """
+                    SELECT id, company_id, edinet_doc_id, period_start, period_end,
+                           fiscal_year, fiscal_period, is_consolidated
+                    FROM filings
+                    WHERE company_id = %s
+                      AND period_end >= CURRENT_DATE - INTERVAL '%s years'
+                """
+                params: list = [company_id, years]
+
+                if fiscal_period:
+                    base_query += " AND fiscal_period = %s"
+                    params.append(fiscal_period)
+
+                base_query += " ORDER BY period_end DESC"
+
+                cur.execute(base_query, params)
+                rows = cur.fetchall()
+                return [
+                    FilingInfo(
+                        id=row[0],
+                        company_id=row[1],
+                        edinet_doc_id=row[2],
+                        period_start=row[3],
+                        period_end=row[4],
+                        fiscal_year=row[5],
+                        fiscal_period=row[6],
+                        is_consolidated=row[7],
+                    )
+                    for row in rows
+                ]
+
+    def list_annual_filings(self, company_id: int, years: int = 5) -> list[FilingInfo]:
+        """会社IDから本決算（FY）の Filing 一覧を取得.
+
+        Args:
+            company_id: 会社ID
+            years: 取得する年数
+
+        Returns:
+            本決算Filing情報のリスト（fiscal_year 降順）
+        """
+        return self.list_for_company(company_id, years=years, fiscal_period="FY")
+
+    def find_latest_for_company(self, company_id: int) -> Optional[FilingInfo]:
+        """会社IDから最新の Filing を取得.
+
+        Args:
+            company_id: 会社ID
+
+        Returns:
+            最新のFiling情報。見つからない場合は None
+        """
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id, company_id, edinet_doc_id, period_start, period_end,
+                           fiscal_year, fiscal_period, is_consolidated
+                    FROM filings
+                    WHERE company_id = %s
+                    ORDER BY period_end DESC
+                    LIMIT 1
+                    """,
+                    (company_id,),
+                )
+                row = cur.fetchone()
+                if row:
+                    return FilingInfo(
+                        id=row[0],
+                        company_id=row[1],
+                        edinet_doc_id=row[2],
+                        period_start=row[3],
+                        period_end=row[4],
+                        fiscal_year=row[5],
+                        fiscal_period=row[6],
+                        is_consolidated=row[7],
+                    )
+        return None
