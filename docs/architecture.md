@@ -705,14 +705,65 @@ if __name__ == "__main__":
 
 ---
 
-### Phase 3: スクリーニング機能
+### Phase 3: スクリーニング機能 ✅ 完了
 
 **目的:** 条件に合う銘柄を抽出する
 
-1. `src/analytics/screeners/_base.py` - 基底クラス実装
-2. `src/analytics/registry.py` - レジストリ実装
-3. 各スクリーナーを1ファイル1クラスで実装
-4. `scripts/run_screener.py` - CLI統合
+**ステータス:** 完了（2024-12）
+
+**完了条件:**
+- [x] `src/analytics/registry.py` - レジストリ + @register デコレータ実装
+- [x] `src/analytics/screeners/_base.py` - BaseScreener 実装
+- [x] `src/analytics/screeners/growth/eps_growth.py` - EPS成長率スクリーナー
+- [x] `src/analytics/screeners/growth/revenue_growth.py` - 売上高成長率スクリーナー
+- [x] `src/analytics/screeners/value/profit_margin.py` - 営業利益率スクリーナー
+- [x] `scripts/run_screener.py` - CLI 追加
+- [x] `tests/unit/analytics/` - テスト追加
+
+**CLI 利用例:**
+
+```bash
+# 利用可能なスクリーナー一覧
+python scripts/run_screener.py --list
+
+# EPS成長率で評価
+python scripts/run_screener.py --name eps_growth --ticker 7203
+
+# 売上高成長率で評価（5年、15%以上）
+python scripts/run_screener.py --name revenue_growth --ticker 7203 --years 5 --min-growth 0.15
+
+# 営業利益率で評価（10%以上）
+python scripts/run_screener.py --name profit_margin --ticker 7203 --min-margin 0.10
+
+# JSON形式で出力
+python scripts/run_screener.py --name eps_growth --ticker 7203 --json
+```
+
+**スクリーナー追加手順:**
+
+1. `src/analytics/screeners/` 配下に新しいファイルを作成
+2. `BaseScreener` を継承したクラスを定義
+3. `@register("screener_name")` デコレータで登録
+4. `name`, `description`, `evaluate()` を実装
+
+```python
+from src.analytics.registry import register
+from src.analytics.screeners._base import BaseScreener, ScreenerResult
+
+@register("my_screener")
+class MyScreener(BaseScreener):
+    @property
+    def name(self) -> str:
+        return "マイスクリーナー"
+
+    @property
+    def description(self) -> str:
+        return "条件の説明"
+
+    def evaluate(self, company_data: dict) -> ScreenerResult:
+        # 評価ロジック
+        return ScreenerResult(passed=True, score=0.5)
+```
 
 ---
 
@@ -760,7 +811,7 @@ if __name__ == "__main__":
 1. [x] `src/query/repositories/` ディレクトリ作成・基本実装 ← Phase 1 完了
 2. [x] `src/query/timeseries.py` 実装 ← Phase 1 完了
 3. [x] `scripts/show_company_report.py` 作成 - 動作確認 ← Phase 2 完了
-4. [ ] `src/analytics/registry.py` + `screeners/_base.py` 実装 ← Phase 3
+4. [x] `src/analytics/registry.py` + `screeners/_base.py` 実装 ← Phase 3 完了
 5. [ ] 既存の `edinet_*` ファイルをサブディレクトリへ移動（Phase 4）
 
 ---
