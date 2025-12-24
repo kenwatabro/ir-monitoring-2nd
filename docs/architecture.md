@@ -609,9 +609,50 @@ def get_financial_history(
 
 ---
 
-### Phase 2: レポート出力（Phase 1完了後）
+### Phase 2: レポート出力 ✅ 完了
 
 **目的:** 取得した時系列データを人間が読める形式で出力する
+
+**ステータス:** 完了（2024-12）
+
+**完了条件:**
+- [x] `src/reports/formatters/_base.py` - BaseFormatter 実装
+- [x] `src/reports/formatters/console.py` - ConsoleFormatter 実装
+- [x] `src/reports/formatters/csv.py` - CsvFormatter 実装
+- [x] `src/reports/formatters/markdown.py` - MarkdownFormatter 実装
+- [x] `src/reports/generators/company.py` - CompanyReportGenerator 実装
+- [x] `scripts/show_company_report.py` - CLI 追加
+- [x] `tests/unit/reports/test_formatters.py` - フォーマッターテスト追加
+
+**CLI 利用例:**
+
+```bash
+# コンソール形式（デフォルト）
+python scripts/show_company_report.py 7203
+
+# Markdown 形式
+python scripts/show_company_report.py 7203 --format markdown
+
+# CSV 形式、10年分
+python scripts/show_company_report.py 7203 --format csv --years 10
+
+# EDINETコードで検索
+python scripts/show_company_report.py --edinet E12345
+```
+
+**出力サンプル（コンソール形式）:**
+
+```
+=== トヨタ自動車 財務推移 ===
+
+決算期          売上高        営業利益        経常利益          純利益        EPS
+---------------------------------------------------------------------------------
+2020 FY     29,929,992     2,399,299     2,792,942     2,076,183     149.30
+2021 FY     27,214,594     2,197,748     2,932,354     2,245,261     160.65
+...
+
+※ 金額は百万円単位
+```
 
 ```python
 # src/reports/generators/company.py
@@ -718,7 +759,7 @@ if __name__ == "__main__":
 
 1. [x] `src/query/repositories/` ディレクトリ作成・基本実装 ← Phase 1 完了
 2. [x] `src/query/timeseries.py` 実装 ← Phase 1 完了
-3. [ ] `scripts/show_company_report.py` 作成 - 動作確認 ← Phase 2
+3. [x] `scripts/show_company_report.py` 作成 - 動作確認 ← Phase 2 完了
 4. [ ] `src/analytics/registry.py` + `screeners/_base.py` 実装 ← Phase 3
 5. [ ] 既存の `edinet_*` ファイルをサブディレクトリへ移動（Phase 4）
 
