@@ -37,6 +37,3 @@ def get_connection(dsn: Optional[str] = None) -> Iterator[PgConnection]:
         yield conn
     finally:
         conn.close()
-
-
-

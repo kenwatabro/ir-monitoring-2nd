@@ -3,6 +3,3 @@
 from .edinet_loader import load_edinet_directory
 
 __all__ = ["load_edinet_directory"]
-
-
-

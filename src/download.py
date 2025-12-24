@@ -57,5 +57,6 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"Downloaded {len(docs)} document(s)")
 
+
 if __name__ == "__main__":
     main()

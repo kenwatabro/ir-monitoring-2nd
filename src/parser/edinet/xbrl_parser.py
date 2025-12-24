@@ -175,7 +175,11 @@ class BalanceSheetSummary(BaseSummary):
         total_liabilities = _pick("total_liabilities")
 
         # 総負債がタグから取れない場合は「資産－純資産」で近似
-        if total_liabilities is None and total_assets is not None and net_assets is not None:
+        if (
+            total_liabilities is None
+            and total_assets is not None
+            and net_assets is not None
+        ):
             total_liabilities = total_assets - net_assets
 
         return cls(
@@ -205,5 +209,3 @@ __all__ = [
     "BalanceSheetSummary",
     "extract_summary_metrics",
 ]
-
-

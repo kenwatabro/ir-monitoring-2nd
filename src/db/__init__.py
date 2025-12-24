@@ -7,6 +7,3 @@
 from .core import get_connection, get_pg_dsn
 
 __all__ = ["get_connection", "get_pg_dsn"]
-
-
-
