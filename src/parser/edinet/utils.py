@@ -47,7 +47,9 @@ def iter_facts_from_zip(zip_path: Path | str) -> Iterator[XbrlFact]:
         )
 
 
-def collect_facts_from_zip(zip_path: Path | str, limit: Optional[int] = None) -> List[XbrlFact]:
+def collect_facts_from_zip(
+    zip_path: Path | str, limit: Optional[int] = None
+) -> List[XbrlFact]:
     """ZIPから fact を全件、または limit 件だけリストに詰めて返す。"""
     facts: List[XbrlFact] = []
     for i, fact in enumerate(iter_facts_from_zip(zip_path)):
@@ -89,7 +91,9 @@ def is_current_nonconsolidated(context_ref: Optional[str]) -> bool:
     """当期・単体（NonConsolidated）を表す contextRef かどうかの簡易判定。"""
     if context_ref is None:
         return False
-    return context_ref.startswith("CurrentYear") and "NonConsolidatedMember" in context_ref
+    return (
+        context_ref.startswith("CurrentYear") and "NonConsolidatedMember" in context_ref
+    )
 
 
 def pick_current_value(df: pd.DataFrame, local_names: List[str]) -> Optional[float]:
@@ -103,7 +107,9 @@ def pick_current_value(df: pd.DataFrame, local_names: List[str]) -> Optional[flo
 
     preferred = candidates[candidates["context_ref"].map(is_current_nonconsolidated)]
     if preferred.empty:
-        preferred = candidates[candidates["context_ref"].fillna("").str.contains("CurrentYear")]
+        preferred = candidates[
+            candidates["context_ref"].fillna("").str.contains("CurrentYear")
+        ]
     if preferred.empty:
         return None
 
@@ -114,7 +120,9 @@ def pick_current_value(df: pd.DataFrame, local_names: List[str]) -> Optional[flo
         return None
 
 
-def pick_instant_value(df: pd.DataFrame, local_names: List[str], context_keyword: str) -> Optional[float]:
+def pick_instant_value(
+    df: pd.DataFrame, local_names: List[str], context_keyword: str
+) -> Optional[float]:
     """指定された local_name と context キーワードから、期首/期末などの値を1つ選んで返す。
 
     例:
@@ -128,7 +136,9 @@ def pick_instant_value(df: pd.DataFrame, local_names: List[str], context_keyword
     if candidates.empty:
         return None
 
-    preferred = candidates[candidates["context_ref"].fillna("").str.contains(context_keyword)]
+    preferred = candidates[
+        candidates["context_ref"].fillna("").str.contains(context_keyword)
+    ]
     if preferred.empty:
         return None
 
@@ -149,5 +159,3 @@ __all__ = [
     "pick_current_value",
     "pick_instant_value",
 ]
-
-

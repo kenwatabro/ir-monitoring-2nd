@@ -19,5 +19,3 @@ def load_edinet_config() -> Dict[str, Any]:
 
 
 __all__ = ["load_edinet_config"]
-
-

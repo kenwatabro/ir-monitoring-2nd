@@ -87,9 +87,15 @@ def extract_basic_metadata_from_zip(zip_path: Path) -> Dict[str, str]:
             continue
         text = elem.text.strip()
 
-        if not meta["company_name"] and lname in ("CompanyNameCoverPage", "CompanyName"):
+        if not meta["company_name"] and lname in (
+            "CompanyNameCoverPage",
+            "CompanyName",
+        ):
             meta["company_name"] = text
-        if not meta["security_code"] and lname in ("SecurityCode", "SecurityCodeCoverPage"):
+        if not meta["security_code"] and lname in (
+            "SecurityCode",
+            "SecurityCodeCoverPage",
+        ):
             meta["security_code"] = text
 
         if meta["company_name"] and meta["security_code"]:
@@ -98,7 +104,9 @@ def extract_basic_metadata_from_zip(zip_path: Path) -> Dict[str, str]:
     return meta
 
 
-def _infer_fiscal_info(period_start: str, period_end: str) -> Tuple[Optional[int], Optional[str]]:
+def _infer_fiscal_info(
+    period_start: str, period_end: str
+) -> Tuple[Optional[int], Optional[str]]:
     """期間からざっくりと決算年度と期（FY, Q1〜Q4）を推定する."""
     if not period_end:
         return None, None
@@ -124,7 +132,9 @@ def _infer_fiscal_info(period_start: str, period_end: str) -> Tuple[Optional[int
     return fiscal_year, fiscal_period
 
 
-def _ensure_company(cur, edinet_code: str, company_name: str, security_code: str) -> int:
+def _ensure_company(
+    cur, edinet_code: str, company_name: str, security_code: str
+) -> int:
     """companies に会社をINSERT or 更新して company_id を返す."""
     cur.execute(
         """
@@ -300,7 +310,11 @@ def load_edinet_directory(
         with conn.cursor() as cur:
             # 最初に一括で既存IDを取得（ループ内での毎回クエリを回避）
             existing_doc_ids = _get_existing_doc_ids(cur)
-            logger.info("Found %d existing filings in DB, %d ZIP files to check", len(existing_doc_ids), len(zip_paths))
+            logger.info(
+                "Found %d existing filings in DB, %d ZIP files to check",
+                len(existing_doc_ids),
+                len(zip_paths),
+            )
 
             # サマリー用カウンター
             skipped_existing = 0
@@ -330,7 +344,9 @@ def load_edinet_directory(
                         meta.get("security_code", ""),
                     )
 
-                    existing_filing_id = _find_existing_filing_id(cur, company_id, edinet_doc_id)
+                    existing_filing_id = _find_existing_filing_id(
+                        cur, company_id, edinet_doc_id
+                    )
                     if existing_filing_id is not None:
                         # 既存filingはスキップ（メタデータ更新のみ）
                         logger.info("Already loaded, skipping: %s", edinet_doc_id)
@@ -384,6 +400,3 @@ def load_edinet_directory(
                 f"=== Load Summary: {loaded_count} loaded, {skipped_existing} skipped (existing), "
                 f"{skipped_no_xbrl} skipped (no xbrl), {error_count} errors ==="
             )
-
-
-

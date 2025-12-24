@@ -32,5 +32,3 @@ __all__ = [
     "XbrlFact",
     "BaseSummary",
 ]
-
-

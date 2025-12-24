@@ -47,7 +47,7 @@ class EdinetDownloader(BaseDownloader):
                         downloaded_docs.append(enriched_doc)
             current += timedelta(days=1)
         return downloaded_docs
-    
+
     def _fetch_metadata(self, current: date) -> dict:
         params = {
             "date": current.strftime("%Y-%m-%d"),
@@ -94,6 +94,3 @@ class EdinetDownloader(BaseDownloader):
                     fh.write(chunk)
         logger.info("Downloaded: %s", doc_id)
         return dest_path
-
-
-           
