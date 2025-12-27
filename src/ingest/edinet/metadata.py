@@ -88,3 +88,5 @@ def upsert_edinet_documents(
                 rows,
             )
         conn.commit()
+
+

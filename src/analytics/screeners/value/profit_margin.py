@@ -76,3 +76,4 @@ class ProfitMarginScreener(BaseScreener):
                 "net_sales": net_sales,
             },
         )
+

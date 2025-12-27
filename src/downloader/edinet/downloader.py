@@ -94,3 +94,4 @@ class EdinetDownloader(BaseDownloader):
                     fh.write(chunk)
         logger.info("Downloaded: %s", doc_id)
         return dest_path
+

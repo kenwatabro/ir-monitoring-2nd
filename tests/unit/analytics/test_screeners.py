@@ -164,3 +164,5 @@ class TestBaseScreenerMethods:
 
         tickers = [c["ticker"] for c, _ in result]
         assert tickers == ["B", "A", "C"]  # 44%, 21%, 10% の順
+
+

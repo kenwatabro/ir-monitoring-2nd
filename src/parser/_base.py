@@ -34,3 +34,5 @@ class BaseParser(ABC):
         Returns:
             パース結果の辞書
         """
+
+

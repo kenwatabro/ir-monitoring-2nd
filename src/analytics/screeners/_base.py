@@ -96,3 +96,4 @@ class BaseScreener(ABC):
         # passed=True のみ、スコア降順でソート
         passed = [(c, r) for c, r in results if r.passed]
         return sorted(passed, key=lambda x: x[1].score or 0, reverse=True)
+

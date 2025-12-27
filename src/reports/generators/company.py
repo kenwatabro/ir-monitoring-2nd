@@ -83,3 +83,5 @@ class CompanyReportGenerator:
 
         # フォーマットして返す
         return self.formatter.format(history, company_name=company_name)
+
+

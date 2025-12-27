@@ -89,3 +89,4 @@ class RevenueGrowthScreener(BaseScreener):
                 "years": self.years,
             },
         )
+

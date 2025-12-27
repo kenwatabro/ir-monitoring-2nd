@@ -87,3 +87,5 @@ def auto_discover() -> None:
 def clear_registry() -> None:
     """レジストリをクリアする（テスト用）."""
     _registry.clear()
+
+

@@ -37,3 +37,5 @@ def get_downloader(source: str, start_date: date, end_date: date) -> BaseDownloa
 def list_sources() -> list[str]:
     """利用可能なデータソース一覧を返す."""
     return list(_downloaders.keys())
+
+

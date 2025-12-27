@@ -29,3 +29,5 @@ class BaseRepository:
             psycopg2 connection context manager
         """
         return get_connection(self.dsn)
+
+

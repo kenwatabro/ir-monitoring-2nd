@@ -5,3 +5,5 @@ from .generators.company import CompanyReportGenerator
 __all__ = [
     "CompanyReportGenerator",
 ]
+
+

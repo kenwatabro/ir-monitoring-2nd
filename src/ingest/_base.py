@@ -31,3 +31,5 @@ class BaseLoader(ABC):
             source_dir: ソースディレクトリ
             max_files: 処理するファイル数の上限（デバッグ用）
         """
+
+

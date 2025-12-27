@@ -35,3 +35,5 @@ def get_loader(source: str, dsn: Optional[str] = None) -> BaseLoader:
 def list_sources() -> list[str]:
     """利用可能なデータソース一覧を返す."""
     return list(_loaders.keys())
+
+

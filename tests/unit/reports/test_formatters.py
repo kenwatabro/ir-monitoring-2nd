@@ -159,3 +159,5 @@ class TestMarkdownFormatter:
         # 各行のパイプ数が一致
         pipe_counts = [line.count("|") for line in lines]
         assert len(set(pipe_counts)) == 1  # 全て同じ
+
+

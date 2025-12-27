@@ -62,3 +62,5 @@ class ConsoleFormatter(BaseFormatter):
         lines.append("※ 金額は百万円単位")
 
         return "\n".join(lines)
+
+

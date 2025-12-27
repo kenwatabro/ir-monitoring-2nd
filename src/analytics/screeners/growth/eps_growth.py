@@ -88,3 +88,4 @@ class EPSGrowthScreener(BaseScreener):
                 "years": self.years,
             },
         )
+

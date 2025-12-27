@@ -415,3 +415,5 @@ def load_edinet_directory(
                 f"=== Load Summary: {loaded_count} loaded, {skipped_existing} skipped (existing), "
                 f"{skipped_no_xbrl} skipped (no xbrl), {error_count} errors ==="
             )
+
+

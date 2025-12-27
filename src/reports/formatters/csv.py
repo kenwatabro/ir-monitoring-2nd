@@ -70,3 +70,5 @@ class CsvFormatter(BaseFormatter):
             )
 
         return output.getvalue()
+
+
