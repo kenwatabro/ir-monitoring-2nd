@@ -12,12 +12,17 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 from typing import Optional
 
-from src.reports.formatters.console import ConsoleFormatter
-from src.reports.formatters.csv import CsvFormatter
-from src.reports.formatters.markdown import MarkdownFormatter
-from src.reports.generators.company import CompanyReportGenerator
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.reports.formatters.console import ConsoleFormatter  # noqa: E402
+from src.reports.formatters.csv import CsvFormatter  # noqa: E402
+from src.reports.formatters.markdown import MarkdownFormatter  # noqa: E402
+from src.reports.generators.company import CompanyReportGenerator  # noqa: E402
 
 FORMATTERS = {
     "console": ConsoleFormatter,

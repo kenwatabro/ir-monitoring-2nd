@@ -31,3 +31,4 @@ class BaseRepository:
         return get_connection(self.dsn)
 
 
+

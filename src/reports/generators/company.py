@@ -85,3 +85,4 @@ class CompanyReportGenerator:
         return self.formatter.format(history, company_name=company_name)
 
 
+

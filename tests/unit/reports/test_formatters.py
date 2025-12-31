@@ -161,3 +161,4 @@ class TestMarkdownFormatter:
         assert len(set(pipe_counts)) == 1  # 全て同じ
 
 
+

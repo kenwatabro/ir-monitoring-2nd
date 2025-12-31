@@ -8,8 +8,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from .downloader.edinet_downloader import EdinetDownloader
-from .ingest.edinet_metadata import upsert_edinet_documents
+from .downloader.edinet import EdinetDownloader
+from .ingest.edinet import upsert_edinet_documents
 
 
 def build_parser() -> argparse.ArgumentParser:

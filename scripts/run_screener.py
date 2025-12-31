@@ -13,11 +13,16 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
 from typing import Any, Optional
 
-from src.analytics import auto_discover, get_screener, list_screeners
-from src.query.repositories.company import CompanyRepository
-from src.query.timeseries import get_financial_history
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.analytics import auto_discover, get_screener, list_screeners  # noqa: E402
+from src.query.repositories.company import CompanyRepository  # noqa: E402
+from src.query.timeseries import get_financial_history  # noqa: E402
 
 
 def load_company_data(

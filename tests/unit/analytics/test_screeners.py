@@ -166,3 +166,4 @@ class TestBaseScreenerMethods:
         assert tickers == ["B", "A", "C"]  # 44%, 21%, 10% の順
 
 
+
