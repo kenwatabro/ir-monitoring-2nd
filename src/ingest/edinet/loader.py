@@ -14,6 +14,7 @@ from psycopg2.extras import execute_values
 from src.db import get_connection
 from src.ingest._base import BaseLoader
 from src.parser.configs import load_edinet_config
+from src.parser.edinet import utils as xbrl_utils
 from src.parser.edinet.utils import find_instance_xbrl_name
 from src.parser.edinet.xbrl_parser import (
     BalanceSheetSummary,
@@ -90,13 +91,23 @@ def extract_basic_metadata_from_zip(zip_path: Path) -> Dict[str, str]:
         if not meta["company_name"] and lname in (
             "CompanyNameCoverPage",
             "CompanyName",
+            "CompanyNameDEI",
+            # 投資信託・ETF はファンド名タグを使う
+            "FundNameInJapaneseDEI",
+            "FundNameCoverPage",
         ):
             meta["company_name"] = text
+
         if not meta["security_code"] and lname in (
             "SecurityCode",
             "SecurityCodeCoverPage",
+            "SecurityCodeDEI",
         ):
-            meta["security_code"] = text
+            # EDINETは5桁（末尾0付き）で格納する場合がある → 4桁の証券コードに正規化
+            code = text.strip()
+            if len(code) == 5 and code.endswith("0"):
+                code = code[:4]
+            meta["security_code"] = code
 
         if meta["company_name"] and meta["security_code"]:
             break
@@ -107,7 +118,16 @@ def extract_basic_metadata_from_zip(zip_path: Path) -> Dict[str, str]:
 def _infer_fiscal_info(
     period_start: str, period_end: str
 ) -> Tuple[Optional[int], Optional[str]]:
-    """期間からざっくりと決算年度と期（FY, Q1〜Q4）を推定する."""
+    """期間の長さから決算年度と期（FY, Q1〜Q3）を推定する.
+
+    period_start と period_end の差分（日数）で判断する:
+      >= 330日 → FY（本決算）
+      >= 240日 → Q3（3四半期累積）
+      >= 150日 → Q2（半期）
+      それ以下 → Q1（第1四半期）
+
+    月のみで判断する旧ロジックは 12月決算企業の本決算を Q3 に誤分類していた。
+    """
     if not period_end:
         return None, None
     try:
@@ -115,21 +135,25 @@ def _infer_fiscal_info(
     except ValueError:
         return None, None
 
-    # ざっくり: 期末年を fiscal_year とし、月から四半期を推定
     fiscal_year = end_date.year
-    month = end_date.month
 
-    fiscal_period: Optional[str]
-    if month in (3, 4, 5):
-        fiscal_period = "FY"  # 本決算とみなす
-    elif month in (6, 7, 8):
-        fiscal_period = "Q1"
-    elif month in (9, 10, 11):
-        fiscal_period = "Q2"
-    else:
-        fiscal_period = "Q3"
+    if period_start:
+        try:
+            start_date = date.fromisoformat(period_start)
+            duration_days = (end_date - start_date).days
+            if duration_days >= 330:
+                return fiscal_year, "FY"
+            elif duration_days >= 240:
+                return fiscal_year, "Q3"
+            elif duration_days >= 150:
+                return fiscal_year, "Q2"
+            else:
+                return fiscal_year, "Q1"
+        except ValueError:
+            pass
 
-    return fiscal_year, fiscal_period
+    # period_start が解析できない場合は期を None とする
+    return fiscal_year, None
 
 
 def _ensure_company(
@@ -172,6 +196,15 @@ def _get_existing_doc_ids(cur) -> set[str]:
     return {row[0] for row in cur.fetchall()}
 
 
+def _infer_document_type(fiscal_period: Optional[str]) -> Optional[str]:
+    """fiscal_period から document_type を推定する."""
+    if fiscal_period == "FY":
+        return "yuho"
+    if fiscal_period in ("Q1", "Q2", "Q3"):
+        return "shihanki"
+    return None
+
+
 def _insert_filing(
     cur,
     company_id: int,
@@ -182,6 +215,7 @@ def _insert_filing(
         meta.get("period_start") or "",
         meta.get("period_end") or "",
     )
+    document_type = _infer_document_type(fiscal_period)
 
     cur.execute(
         """
@@ -208,7 +242,7 @@ def _insert_filing(
             fiscal_year,
             fiscal_period,
             True,
-            None,
+            document_type,
             None,
             str(meta.get("source_zip_path") or ""),
         ),
@@ -334,6 +368,7 @@ def load_edinet_directory(
             # サマリー用カウンター
             skipped_existing = 0
             skipped_no_xbrl = 0
+            skipped_no_edinet_code = 0
             loaded_count = 0
             error_count = 0
 
@@ -350,7 +385,15 @@ def load_edinet_directory(
                 try:
                     meta = extract_basic_metadata_from_zip(zip_path)
                     meta["source_zip_path"] = str(zip_path)
-                    edinet_code = meta.get("edinet_code") or "UNKNOWN"
+                    edinet_code = meta.get("edinet_code") or ""
+
+                    # EDINETコードが取れない書類は会社を特定できないのでスキップ
+                    if not edinet_code:
+                        logger.warning(
+                            "Skipping %s: edinet_code not found in XBRL", edinet_doc_id
+                        )
+                        skipped_no_edinet_code += 1
+                        continue
 
                     company_id = _ensure_company(
                         cur,
@@ -392,9 +435,14 @@ def load_edinet_directory(
                         conn.commit()
                         continue
 
-                    fs = FinancialSummary.parse_zip(zip_path)
-                    cf = CashFlowSummary.parse_zip(zip_path)
-                    bs = BalanceSheetSummary.parse_zip(zip_path)
+                    # ZIPを1回だけ開いてDataFrameを作り、3つのサマリーで共有する
+                    facts = xbrl_utils.collect_facts_from_zip(zip_path)
+                    df = xbrl_utils.facts_to_dataframe(facts)
+                    df = xbrl_utils.add_local_name_column(df)
+
+                    fs = FinancialSummary.from_dataframe(df)
+                    cf = CashFlowSummary.from_dataframe(df)
+                    bs = BalanceSheetSummary.from_dataframe(df)
 
                     filing_id = _insert_filing(cur, company_id, edinet_doc_id, meta)
                     _insert_statements_and_items(cur, filing_id, cfg, fs, cf, bs)
@@ -412,8 +460,11 @@ def load_edinet_directory(
 
             # サマリー出力（printで確実に表示）
             print(
-                f"=== Load Summary: {loaded_count} loaded, {skipped_existing} skipped (existing), "
-                f"{skipped_no_xbrl} skipped (no xbrl), {error_count} errors ==="
+                f"=== Load Summary: {loaded_count} loaded, "
+                f"{skipped_existing} skipped (existing), "
+                f"{skipped_no_xbrl} skipped (no xbrl), "
+                f"{skipped_no_edinet_code} skipped (no edinet_code), "
+                f"{error_count} errors ==="
             )
 
 

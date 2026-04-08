@@ -83,7 +83,7 @@ class FilingRepository(BaseRepository):
                            fiscal_year, fiscal_period, is_consolidated
                     FROM filings
                     WHERE company_id = %s
-                      AND period_end >= CURRENT_DATE - INTERVAL '%s years'
+                      AND period_end >= CURRENT_DATE - make_interval(years => %s)
                 """
                 params: list = [company_id, years]
 

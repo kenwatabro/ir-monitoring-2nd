@@ -98,18 +98,30 @@ class TestGetScreener:
 class TestAutoDiscover:
     """auto_discover のテスト."""
 
-    def test_discovers_builtin_screeners(self) -> None:
-        """組み込みスクリーナーを発見できる.
+    def setup_method(self) -> None:
+        """各テスト前にレジストリとキャッシュ済みスクリーナーモジュールをクリア.
 
-        Note: モジュールが既にインポートされている場合、importlib.import_module は
-        再度デコレータを実行しない。そのため、このテストではモジュールを直接
-        インポートしてデコレータを実行させる。
+        pytest が全テストファイルを先にインポートするため、スクリーナーモジュールが
+        sys.modules にキャッシュされている場合がある。その状態で clear_registry() が
+        呼ばれると @register が再実行されず registry が空になる。
+        sys.modules からスクリーナーモジュールを削除することで auto_discover() が
+        新規インポートとして @register を再実行できるようにする。
         """
-        # モジュールを直接インポートしてデコレータを実行させる
-        import src.analytics.screeners.growth.eps_growth  # noqa: F401
-        import src.analytics.screeners.growth.revenue_growth  # noqa: F401
-        import src.analytics.screeners.value.profit_margin  # noqa: F401
+        import sys
 
+        for key in list(sys.modules.keys()):
+            if key.startswith("src.analytics.screeners.growth.") or key.startswith(
+                "src.analytics.screeners.value."
+            ):
+                del sys.modules[key]
+        clear_registry()
+
+    def teardown_method(self) -> None:
+        """各テスト後にレジストリをクリア."""
+        clear_registry()
+
+    def test_discovers_builtin_screeners(self) -> None:
+        """組み込みスクリーナーを発見できる."""
         auto_discover()
 
         screeners = list_screeners()

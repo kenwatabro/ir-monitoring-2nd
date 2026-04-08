@@ -62,7 +62,7 @@ class StatementRepository(BaseRepository):
                         statement_id=row[1],
                         item_key=row[2],
                         label_ja=row[3],
-                        value_numeric=row[4],
+                        value_numeric=float(row[4]) if row[4] is not None else None,
                         order_index=row[5],
                     )
                     for row in rows
@@ -132,7 +132,7 @@ class StatementRepository(BaseRepository):
                 )
                 row = cur.fetchone()
                 if row:
-                    return row[0]
+                    return float(row[0]) if row[0] is not None else None
         return None
 
     def get_financial_summary(self, filing_id: int) -> dict[str, Optional[float]]:

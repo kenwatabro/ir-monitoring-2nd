@@ -87,17 +87,16 @@ def add_local_name_column(df: pd.DataFrame, column: str = "local_name") -> pd.Da
     return df
 
 
-def is_current_nonconsolidated(context_ref: Optional[str]) -> bool:
-    """当期・単体（NonConsolidated）を表す contextRef かどうかの簡易判定。"""
-    if context_ref is None:
-        return False
-    return (
-        context_ref.startswith("CurrentYear") and "NonConsolidatedMember" in context_ref
-    )
-
-
 def pick_current_value(df: pd.DataFrame, local_names: List[str]) -> Optional[float]:
-    """指定された local_name 候補から、当期・単体の値を1つ選んで返す."""
+    """指定された local_name 候補から当期の値を1つ選んで返す.
+
+    優先順位:
+    1. 当期・連結（CurrentYear かつ NonConsolidated を含まない）
+    2. 当期・単体（CurrentYear かつ NonConsolidated を含む）
+    3. その他 CurrentYear コンテキスト
+
+    日本の上場企業の多くは連結決算を主体とするため、連結を優先する。
+    """
     if df.empty:
         return None
 
@@ -105,11 +104,18 @@ def pick_current_value(df: pd.DataFrame, local_names: List[str]) -> Optional[flo
     if candidates.empty:
         return None
 
-    preferred = candidates[candidates["context_ref"].map(is_current_nonconsolidated)]
-    if preferred.empty:
-        preferred = candidates[
-            candidates["context_ref"].fillna("").str.contains("CurrentYear")
-        ]
+    ctx = candidates["context_ref"].fillna("")
+
+    # 1. 連結・当期
+    consolidated = candidates[
+        ctx.str.contains("CurrentYear") & ~ctx.str.contains("NonConsolidated")
+    ]
+    if not consolidated.empty:
+        preferred = consolidated
+    else:
+        # 2. 単体・当期（連結タグがない企業向け）
+        preferred = candidates[ctx.str.contains("CurrentYear")]
+
     if preferred.empty:
         return None
 
@@ -155,7 +161,6 @@ __all__ = [
     "collect_facts_from_zip",
     "facts_to_dataframe",
     "add_local_name_column",
-    "is_current_nonconsolidated",
     "pick_current_value",
     "pick_instant_value",
 ]
