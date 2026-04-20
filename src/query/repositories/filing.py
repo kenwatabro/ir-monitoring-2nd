@@ -112,14 +112,45 @@ class FilingRepository(BaseRepository):
     def list_annual_filings(self, company_id: int, years: int = 5) -> list[FilingInfo]:
         """会社IDから本決算（FY）の Filing 一覧を取得.
 
+        同一会社・同一 period_end に複数 filing がある場合（訂正有報等）は
+        edinet_doc_id が最大（= 最新提出）の1件のみを返す。
+
         Args:
             company_id: 会社ID
             years: 取得する年数
 
         Returns:
-            本決算Filing情報のリスト（fiscal_year 降順）
+            本決算Filing情報のリスト（period_end 降順、期ごとに1件）
         """
-        return self.list_for_company(company_id, years=years, fiscal_period="FY")
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT DISTINCT ON (period_end)
+                        id, company_id, edinet_doc_id, period_start, period_end,
+                        fiscal_year, fiscal_period, is_consolidated
+                    FROM filings
+                    WHERE company_id = %s
+                      AND fiscal_period = 'FY'
+                      AND period_end >= CURRENT_DATE - make_interval(years => %s)
+                    ORDER BY period_end DESC, edinet_doc_id DESC
+                    """,
+                    (company_id, years),
+                )
+                rows = cur.fetchall()
+                return [
+                    FilingInfo(
+                        id=row[0],
+                        company_id=row[1],
+                        edinet_doc_id=row[2],
+                        period_start=row[3],
+                        period_end=row[4],
+                        fiscal_year=row[5],
+                        fiscal_period=row[6],
+                        is_consolidated=row[7],
+                    )
+                    for row in rows
+                ]
 
     def find_latest_for_company(self, company_id: int) -> Optional[FilingInfo]:
         """会社IDから最新の Filing を取得.

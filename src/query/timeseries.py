@@ -128,8 +128,57 @@ def get_financial_history_by_edinet_code(
     return result
 
 
+def get_all_periods_history(
+    ticker: str,
+    years: int = 5,
+    fiscal_period: Optional[str] = None,
+    dsn: Optional[str] = None,
+) -> list[FinancialTimePoint]:
+    """指定銘柄の財務データを取得（FY・四半期を含む）.
+
+    Args:
+        ticker: 証券コード（例: "7203"）
+        years: 取得する年数（デフォルト: 5年）
+        fiscal_period: 'FY', 'Q1', 'Q2', 'Q3' で絞り込み。None の場合は全期間
+        dsn: PostgreSQL 接続文字列
+
+    Returns:
+        財務時系列データのリスト（period_end 降順）
+    """
+    company_repo = CompanyRepository(dsn)
+    filing_repo = FilingRepository(dsn)
+    statement_repo = StatementRepository(dsn)
+
+    company = company_repo.find_by_ticker(ticker)
+    if not company:
+        return []
+
+    filings = filing_repo.list_for_company(company.id, years=years, fiscal_period=fiscal_period)
+    if not filings:
+        return []
+
+    result: list[FinancialTimePoint] = []
+    for filing in filings:
+        summary = statement_repo.get_financial_summary(filing.id)
+        result.append(
+            FinancialTimePoint(
+                fiscal_year=filing.fiscal_year,
+                fiscal_period=filing.fiscal_period,
+                period_end=filing.period_end,
+                net_sales=summary.get("net_sales"),
+                operating_income=summary.get("operating_income"),
+                ordinary_income=summary.get("ordinary_income"),
+                net_income=summary.get("net_income"),
+                eps=summary.get("eps"),
+            )
+        )
+
+    return result
+
+
 __all__ = [
     "FinancialTimePoint",
     "get_financial_history",
     "get_financial_history_by_edinet_code",
+    "get_all_periods_history",
 ]
