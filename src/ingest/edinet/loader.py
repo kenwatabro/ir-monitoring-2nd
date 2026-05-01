@@ -262,7 +262,7 @@ def _insert_statements_and_items(
     items_values: list[tuple[int, str, str, float | None, int]] = []
 
     for statement_type, cfg_key, summary_obj in sections:
-        # statements
+        # statements — ON CONFLICT で再実行・並行実行時の重複を防ぐ
         cur.execute(
             """
             INSERT INTO statements (
@@ -274,6 +274,8 @@ def _insert_statements_and_items(
                 statement_label
             )
             VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (filing_id, statement_type)
+                DO UPDATE SET statement_type = EXCLUDED.statement_type
             RETURNING id
             """,
             (filing_id, statement_type, None, None, None, None),
@@ -305,6 +307,11 @@ def _insert_statements_and_items(
                 order_index
             )
             VALUES %s
+            ON CONFLICT (statement_id, item_key)
+                DO UPDATE SET
+                    value_numeric = EXCLUDED.value_numeric,
+                    label_ja = EXCLUDED.label_ja,
+                    order_index = EXCLUDED.order_index
             """,
             items_values,
         )
