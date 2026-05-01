@@ -1,19 +1,50 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-Python services, clients, and observability helpers sit in `src/` (`runner.py` wires API fetchers, parsers, and processors). SQL and schema artifacts live in `sql/`, `ddl/`, and `migrations/`, while orchestrated jobs stay in `flows/`. Configuration templates reside in `config/` plus `env.example`, docs and runbooks live in `docs/`, and automation scripts (database reset, importers, health checks) stay in `scripts/`. Tests, including the Docker-backed scenarios in `tests/integration/`, live under `tests/`.
+Python services and parsers live in `src/` with sub-packages:
+- `src/ingest/` — EDINET ZIP download and DB loading
+- `src/parser/` — XBRL parsing and financial summary extraction
+- `src/query/` — time-series and screening queries
+- `src/analytics/` — screeners and metrics
+- `src/db/` — DB connection helpers
+
+SQL schema lives in `ddl/`. Utility scripts (data repair, dedup, re-parse) live in `scripts/`. Tests live in `tests/unit/`.
 
 ## Build, Test, and Development Commands
-After activating a virtualenv, run `make install-dev` to pull requirements. `make lint` executes `ruff check .` and `ruff format --check .`—fix issues before pushing. Use `make test/unit` for the fast pytest suite (`--maxfail=1 --disable-warnings`). Integration coverage runs via `make test/integration`, which launches `docker-compose.integration.yml`, seeds the DB with `scripts/reset_and_migrate_db.py`, executes `pytest -m integration tests/integration`, then tears down the stack. `make db/init` rebuilds the schema locally, `make db/psql` opens a shell pointed at `$PGURL`, and `make docker/build` packages the app image.
+```bash
+# One-time setup
+python -m venv venv
+pip install -r requirements-dev.txt   # includes pytest and ruff
+
+# Lint (ruff check + format check)
+make lint
+
+# Auto-fix formatting
+make format
+
+# Unit tests
+make test-unit
+# or directly:
+venv/bin/python -m pytest tests/unit -q
+```
+
+There is no Docker-based integration test harness yet. DB-dependent tests require a running PostgreSQL instance configured via `.env`.
+
+## Environment Setup
+Copy `.env.example` to `.env` and fill in your credentials:
+```bash
+cp .env.example .env
+```
+Required variables: `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` (or `PGURL`).
 
 ## Coding Style & Naming Conventions
-Ruff (configured in `ruff.toml`) enforces 120-character lines, spaces for indentation, double quotes, and POSIX endings. Keep modules lowercase with underscores, classes in CapWords, and functions, fixtures, and metrics names in `snake_case`. Favor dependency injection via `config.py` helpers over globals and run Ruff in fix mode before committing to avoid automated review churn.
+Ruff (configured in `ruff.toml`) enforces 120-character lines, double quotes, and POSIX endings. Keep modules lowercase with underscores, classes in CapWords, and functions in `snake_case`. Run `make format` before committing.
 
 ## Testing Guidelines
-Pytest auto-discovers under `tests/`, so add files as `test_<feature>.py` with descriptive function names. Shared fixtures live in `tests/conftest.py`. Mark DB-dependent scenarios with `@pytest.mark.integration` and keep them under `tests/integration/` so they only run in the Compose harness. Every feature PR should add or update unit tests for unhappy paths and extend integration coverage whenever flows, SQL, or migrations change.
+Pytest auto-discovers under `tests/`. Add files as `test_<feature>.py` with descriptive function names. Shared fixtures live in `tests/conftest.py`. DB-dependent tests should be guarded or use mocks so `make test-unit` runs without a live DB.
 
 ## Commit & Pull Request Guidelines
-Follow the existing Conventional Commit pattern `<type>(scope): imperative summary` (examples: `feat(observability): track api metrics`, `docs: add star-schema runbook`). Keep messages short, present tense, and focused on the behavior change. Pull requests must describe intent, link related issues, note schema or env updates, and paste the commands you executed (`make lint`, `make test/unit`, etc.). Attach screenshots or sample payloads for user-facing updates.
+Follow Conventional Commits: `<type>(scope): imperative summary` (e.g. `fix(parser): handle empty XBRL tags`). Keep messages short and focused on the behavior change. Pull requests should note any schema or env changes.
 
-## Configuration & Security Tips
-Copy `env.example` to `.env`, fill credentials locally, and reference variables through `config/` utilities; never commit secrets. Database changes should update both migrations and any mirrored SQL under `resources/` to avoid drift. Ensure Docker Desktop or the Linux daemon is running before `make test/integration`.
+## Configuration & Security
+Never commit `.env` or credentials. Reference environment variables via `src/db/core.py` helpers. Schema changes should add a new file in `ddl/` (e.g. `003_...sql`).

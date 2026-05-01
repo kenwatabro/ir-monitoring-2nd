@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-
 from src.analytics.screeners.growth.eps_growth import EPSGrowthScreener
 from src.analytics.screeners.growth.revenue_growth import RevenueGrowthScreener
 from src.analytics.screeners.value.profit_margin import ProfitMarginScreener
@@ -164,6 +163,3 @@ class TestBaseScreenerMethods:
 
         tickers = [c["ticker"] for c, _ in result]
         assert tickers == ["B", "A", "C"]  # 44%, 21%, 10% の順
-
-
-

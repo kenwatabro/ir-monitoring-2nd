@@ -14,7 +14,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -25,9 +25,7 @@ from src.query.repositories.company import CompanyRepository  # noqa: E402
 from src.query.timeseries import get_financial_history  # noqa: E402
 
 
-def load_company_data(
-    ticker: str, years: int = 5, dsn: Optional[str] = None
-) -> dict[str, Any]:
+def load_company_data(ticker: str, years: int = 5, dsn: str | None = None) -> dict[str, Any]:
     """会社の財務データを取得してスクリーナー用の辞書を構築.
 
     Args:
@@ -56,9 +54,7 @@ def load_company_data(
     latest = history[0]
 
     # 履歴データ（古い順）
-    sorted_history = sorted(
-        history, key=lambda x: (x.fiscal_year or 0, x.period_end or "")
-    )
+    sorted_history = sorted(history, key=lambda x: (x.fiscal_year or 0, x.period_end or ""))
 
     return {
         "ticker": ticker,
@@ -73,7 +69,7 @@ def load_company_data(
     }
 
 
-def main(argv: Optional[list[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     """メイン関数.
 
     Args:

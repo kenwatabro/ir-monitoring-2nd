@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 from ._base import BaseRepository
 
@@ -15,9 +14,9 @@ class StatementItemInfo:
     id: int
     statement_id: int
     item_key: str
-    label_ja: Optional[str]
-    value_numeric: Optional[float]
-    order_index: Optional[int]
+    label_ja: str | None
+    value_numeric: float | None
+    order_index: int | None
 
 
 class StatementRepository(BaseRepository):
@@ -26,7 +25,7 @@ class StatementRepository(BaseRepository):
     def get_items_by_filing(
         self,
         filing_id: int,
-        statement_type: Optional[str] = None,
+        statement_type: str | None = None,
     ) -> list[StatementItemInfo]:
         """Filing IDから財務項目を取得.
 
@@ -106,7 +105,7 @@ class StatementRepository(BaseRepository):
         filing_id: int,
         item_key: str,
         statement_type: str = "PL",
-    ) -> Optional[float]:
+    ) -> float | None:
         """Filing IDと項目キーから値を取得.
 
         Args:
@@ -135,7 +134,7 @@ class StatementRepository(BaseRepository):
                     return float(row[0]) if row[0] is not None else None
         return None
 
-    def get_financial_summary(self, filing_id: int) -> dict[str, Optional[float]]:
+    def get_financial_summary(self, filing_id: int) -> dict[str, float | None]:
         """Filing IDから主要財務指標を辞書で取得.
 
         Args:
@@ -145,7 +144,7 @@ class StatementRepository(BaseRepository):
             主要指標の辞書（net_sales, operating_income, net_income, eps）
         """
         items = self.get_pl_items(filing_id)
-        result: dict[str, Optional[float]] = {
+        result: dict[str, float | None] = {
             "net_sales": None,
             "operating_income": None,
             "ordinary_income": None,

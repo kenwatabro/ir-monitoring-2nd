@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from src.db import get_connection
 
 
@@ -14,7 +12,7 @@ class BaseRepository:
     DB接続を統一的に取得する。
     """
 
-    def __init__(self, dsn: Optional[str] = None):
+    def __init__(self, dsn: str | None = None):
         """Initialize repository with optional DSN.
 
         Args:
@@ -29,6 +27,3 @@ class BaseRepository:
             psycopg2 connection context manager
         """
         return get_connection(self.dsn)
-
-
-

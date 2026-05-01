@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional
 
 
 class BaseLoader(ABC):
@@ -13,7 +12,7 @@ class BaseLoader(ABC):
     すべてのローダーはこのクラスを継承する。
     """
 
-    def __init__(self, dsn: Optional[str] = None):
+    def __init__(self, dsn: str | None = None):
         """Initialize loader.
 
         Args:
@@ -22,15 +21,10 @@ class BaseLoader(ABC):
         self.dsn = dsn
 
     @abstractmethod
-    def load_directory(
-        self, source_dir: Path | str, max_files: Optional[int] = None
-    ) -> None:
+    def load_directory(self, source_dir: Path | str, max_files: int | None = None) -> None:
         """ディレクトリからデータをロードする.
 
         Args:
             source_dir: ソースディレクトリ
             max_files: 処理するファイル数の上限（デバッグ用）
         """
-
-
-

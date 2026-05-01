@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import date
 from unittest.mock import MagicMock, patch
 
-
 from src.query.repositories.company import CompanyInfo
 from src.query.repositories.filing import FilingInfo
 from src.query.timeseries import (

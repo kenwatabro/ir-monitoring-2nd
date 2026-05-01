@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 from datetime import date
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from psycopg2.extras import execute_values
 
@@ -25,9 +25,9 @@ from src.parser.edinet.xbrl_parser import (
 logger = logging.getLogger(__name__)
 
 
-def extract_basic_metadata_from_zip(zip_path: Path) -> Dict[str, str]:
+def extract_basic_metadata_from_zip(zip_path: Path) -> dict[str, str]:
     """XBRLインスタンスから会社コード・社名・期間などのメタ情報をざっくり抽出する."""
-    meta: Dict[str, str] = {
+    meta: dict[str, str] = {
         "edinet_code": "",
         "company_name": "",
         "security_code": "",
@@ -46,11 +46,9 @@ def extract_basic_metadata_from_zip(zip_path: Path) -> Dict[str, str]:
 
     root = tree.getroot()
 
-    contexts: List[ET.Element] = [
-        elem for elem in root if elem.tag.lower().endswith("context")
-    ]
+    contexts: list[ET.Element] = [elem for elem in root if elem.tag.lower().endswith("context")]
 
-    chosen_ctx: Optional[ET.Element] = None
+    chosen_ctx: ET.Element | None = None
     for ctx in contexts:
         ctx_id = ctx.attrib.get("id", "")
         if "CurrentYear" in ctx_id and ctx.find(".//{*}startDate") is not None:
@@ -115,9 +113,7 @@ def extract_basic_metadata_from_zip(zip_path: Path) -> Dict[str, str]:
     return meta
 
 
-def _infer_fiscal_info(
-    period_start: str, period_end: str
-) -> Tuple[Optional[int], Optional[str]]:
+def _infer_fiscal_info(period_start: str, period_end: str) -> tuple[int | None, str | None]:
     """期間の長さから決算年度と期（FY, Q1〜Q3）を推定する.
 
     period_start と period_end の差分（日数）で判断する:
@@ -156,9 +152,7 @@ def _infer_fiscal_info(
     return fiscal_year, None
 
 
-def _ensure_company(
-    cur, edinet_code: str, company_name: str, security_code: str
-) -> int:
+def _ensure_company(cur, edinet_code: str, company_name: str, security_code: str) -> int:
     """companies に会社をINSERT or 更新して company_id を返す."""
     cur.execute(
         """
@@ -177,7 +171,7 @@ def _ensure_company(
     return company_id
 
 
-def _find_existing_filing_id(cur, company_id: int, edinet_doc_id: str) -> Optional[int]:
+def _find_existing_filing_id(cur, company_id: int, edinet_doc_id: str) -> int | None:
     cur.execute(
         """
         SELECT id
@@ -196,7 +190,7 @@ def _get_existing_doc_ids(cur) -> set[str]:
     return {row[0] for row in cur.fetchall()}
 
 
-def _infer_document_type(fiscal_period: Optional[str]) -> Optional[str]:
+def _infer_document_type(fiscal_period: str | None) -> str | None:
     """fiscal_period から document_type を推定する."""
     if fiscal_period == "FY":
         return "yuho"
@@ -209,7 +203,7 @@ def _insert_filing(
     cur,
     company_id: int,
     edinet_doc_id: str,
-    meta: Dict[str, str],
+    meta: dict[str, str],
 ) -> int:
     fiscal_year, fiscal_period = _infer_fiscal_info(
         meta.get("period_start") or "",
@@ -254,18 +248,18 @@ def _insert_filing(
 def _insert_statements_and_items(
     cur,
     filing_id: int,
-    cfg: Dict[str, Any],
+    cfg: dict[str, Any],
     fs: FinancialSummary,
     cf: CashFlowSummary,
     bs: BalanceSheetSummary,
 ) -> None:
-    sections: List[Tuple[str, str, Any]] = [
+    sections: list[tuple[str, str, Any]] = [
         ("PL", "financial", fs),
         ("CF", "cash_flow", cf),
         ("BS", "balance_sheet", bs),
     ]
 
-    items_values: List[Tuple[int, str, str, Optional[float], int]] = []
+    items_values: list[tuple[int, str, str, float | None, int]] = []
 
     for statement_type, cfg_key, summary_obj in sections:
         # statements
@@ -287,8 +281,8 @@ def _insert_statements_and_items(
         statement_id = int(cur.fetchone()[0])
 
         # items
-        fields_cfg: Dict[str, Dict[str, Any]] = cfg.get(cfg_key, {}).get("fields", {})
-        data: Dict[str, Any] = summary_obj.to_dict()
+        fields_cfg: dict[str, dict[str, Any]] = cfg.get(cfg_key, {}).get("fields", {})
+        data: dict[str, Any] = summary_obj.to_dict()
 
         order_index = 0
         for key, value in data.items():
@@ -319,9 +313,7 @@ def _insert_statements_and_items(
 class EdinetLoader(BaseLoader):
     """EDINET XBRLファイルをDBにロードするローダー."""
 
-    def load_directory(
-        self, source_dir: Path | str, max_files: Optional[int] = None
-    ) -> None:
+    def load_directory(self, source_dir: Path | str, max_files: int | None = None) -> None:
         """ディレクトリ内のEDINET ZIPファイルをDBにロードする.
 
         Args:
@@ -333,8 +325,8 @@ class EdinetLoader(BaseLoader):
 
 def load_edinet_directory(
     edinet_dir: Path | str,
-    dsn: Optional[str] = None,
-    max_files: Optional[int] = None,
+    dsn: str | None = None,
+    max_files: int | None = None,
 ) -> None:
     """data/raw/edinet 配下のZIP群をDBにロードする.
 
@@ -346,7 +338,7 @@ def load_edinet_directory(
     base_path = Path(edinet_dir)
     cfg = load_edinet_config()
 
-    zip_paths: List[Path] = sorted(base_path.glob("*.zip"))
+    zip_paths: list[Path] = sorted(base_path.glob("*.zip"))
     if max_files is not None:
         zip_paths = zip_paths[:max_files]
 
@@ -389,9 +381,7 @@ def load_edinet_directory(
 
                     # EDINETコードが取れない書類は会社を特定できないのでスキップ
                     if not edinet_code:
-                        logger.warning(
-                            "Skipping %s: edinet_code not found in XBRL", edinet_doc_id
-                        )
+                        logger.warning("Skipping %s: edinet_code not found in XBRL", edinet_doc_id)
                         skipped_no_edinet_code += 1
                         continue
 
@@ -402,9 +392,7 @@ def load_edinet_directory(
                         meta.get("security_code", ""),
                     )
 
-                    existing_filing_id = _find_existing_filing_id(
-                        cur, company_id, edinet_doc_id
-                    )
+                    existing_filing_id = _find_existing_filing_id(cur, company_id, edinet_doc_id)
                     if existing_filing_id is not None:
                         # 既存filingはスキップ（メタデータ更新のみ）
                         logger.info("Already loaded, skipping: %s", edinet_doc_id)
@@ -466,6 +454,3 @@ def load_edinet_directory(
                 f"{skipped_no_edinet_code} skipped (no edinet_code), "
                 f"{error_count} errors ==="
             )
-
-
-

@@ -50,9 +50,7 @@ class CsvFormatter(BaseFormatter):
         )
 
         # データ行（古い順に並べ替え）
-        sorted_data = sorted(
-            data, key=lambda x: (x.fiscal_year or 0, x.period_end or "")
-        )
+        sorted_data = sorted(data, key=lambda x: (x.fiscal_year or 0, x.period_end or ""))
         for point in sorted_data:
             writer.writerow(
                 [
@@ -60,9 +58,7 @@ class CsvFormatter(BaseFormatter):
                     point.fiscal_period or "",
                     point.period_end.isoformat() if point.period_end else "",
                     point.net_sales if point.net_sales is not None else "",
-                    point.operating_income
-                    if point.operating_income is not None
-                    else "",
+                    point.operating_income if point.operating_income is not None else "",
                     point.ordinary_income if point.ordinary_income is not None else "",
                     point.net_income if point.net_income is not None else "",
                     point.eps if point.eps is not None else "",
@@ -70,6 +66,3 @@ class CsvFormatter(BaseFormatter):
             )
 
         return output.getvalue()
-
-
-

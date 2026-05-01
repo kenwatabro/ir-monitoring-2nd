@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
-from typing import Optional
 
 from ._base import BaseRepository
 
@@ -16,17 +15,17 @@ class FilingInfo:
     id: int
     company_id: int
     edinet_doc_id: str
-    period_start: Optional[date]
-    period_end: Optional[date]
-    fiscal_year: Optional[int]
-    fiscal_period: Optional[str]  # 'FY', 'Q1', 'Q2', 'Q3'
+    period_start: date | None
+    period_end: date | None
+    fiscal_year: int | None
+    fiscal_period: str | None  # 'FY', 'Q1', 'Q2', 'Q3'
     is_consolidated: bool
 
 
 class FilingRepository(BaseRepository):
     """Filing（提出書類）へのアクセスを提供."""
 
-    def find_by_id(self, filing_id: int) -> Optional[FilingInfo]:
+    def find_by_id(self, filing_id: int) -> FilingInfo | None:
         """Filing IDで検索.
 
         Args:
@@ -64,7 +63,7 @@ class FilingRepository(BaseRepository):
         self,
         company_id: int,
         years: int = 5,
-        fiscal_period: Optional[str] = None,
+        fiscal_period: str | None = None,
     ) -> list[FilingInfo]:
         """会社IDから Filing 一覧を取得.
 
@@ -152,7 +151,7 @@ class FilingRepository(BaseRepository):
                     for row in rows
                 ]
 
-    def find_latest_for_company(self, company_id: int) -> Optional[FilingInfo]:
+    def find_latest_for_company(self, company_id: int) -> FilingInfo | None:
         """会社IDから最新の Filing を取得.
 
         Args:

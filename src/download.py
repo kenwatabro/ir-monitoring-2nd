@@ -13,9 +13,7 @@ from .ingest.edinet import upsert_edinet_documents
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Download EDINET filings within a date range."
-    )
+    parser = argparse.ArgumentParser(description="Download EDINET filings within a date range.")
     parser.add_argument(
         "start_date",
         type=date.fromisoformat,

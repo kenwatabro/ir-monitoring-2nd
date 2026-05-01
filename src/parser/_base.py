@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 
 class BaseParser(ABC):
@@ -14,7 +14,7 @@ class BaseParser(ABC):
     """
 
     @abstractmethod
-    def parse_zip(self, zip_path: Path | str) -> Dict[str, Any]:
+    def parse_zip(self, zip_path: Path | str) -> dict[str, Any]:
         """ZIPファイルをパースしてサマリーを返す.
 
         Args:
@@ -25,7 +25,7 @@ class BaseParser(ABC):
         """
 
     @abstractmethod
-    def parse_file(self, file_path: Path | str) -> Dict[str, Any]:
+    def parse_file(self, file_path: Path | str) -> dict[str, Any]:
         """ファイルをパースしてサマリーを返す.
 
         Args:
@@ -34,6 +34,3 @@ class BaseParser(ABC):
         Returns:
             パース結果の辞書
         """
-
-
-

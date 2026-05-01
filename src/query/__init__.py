@@ -2,9 +2,9 @@
 
 from .timeseries import (
     FinancialTimePoint,
+    get_all_periods_history,
     get_financial_history,
     get_financial_history_by_edinet_code,
-    get_all_periods_history,
 )
 
 __all__ = [

@@ -1,0 +1,15 @@
+line-length = 120
+indent-width = 4
+
+[lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501"]
+
+[lint.per-file-ignores]
+"tests/**" = ["S101"]
+"scripts/**" = ["E402"]
+
+[format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"

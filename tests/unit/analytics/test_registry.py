@@ -44,9 +44,7 @@ class TestRegister:
         assert "test_screener" in list_screeners()
         assert get_screener("test_screener") is TestScreener
 
-    def test_register_overwrites_with_warning(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
+    def test_register_overwrites_with_warning(self, caplog: pytest.LogCaptureFixture) -> None:
         """同じ名前で再登録すると警告が出る."""
 
         @register("duplicate")
@@ -110,9 +108,7 @@ class TestAutoDiscover:
         import sys
 
         for key in list(sys.modules.keys()):
-            if key.startswith("src.analytics.screeners.growth.") or key.startswith(
-                "src.analytics.screeners.value."
-            ):
+            if key.startswith("src.analytics.screeners.growth.") or key.startswith("src.analytics.screeners.value."):
                 del sys.modules[key]
         clear_registry()
 

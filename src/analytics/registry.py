@@ -5,14 +5,14 @@ from __future__ import annotations
 import importlib
 import logging
 import pkgutil
-from typing import TYPE_CHECKING, Dict, Type
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from src.analytics.screeners._base import BaseScreener
 
 logger = logging.getLogger(__name__)
 
-_registry: Dict[str, Type[BaseScreener]] = {}
+_registry: dict[str, type[BaseScreener]] = {}
 
 
 def register(name: str):
@@ -30,7 +30,7 @@ def register(name: str):
         クラスデコレータ
     """
 
-    def decorator(cls: Type[BaseScreener]) -> Type[BaseScreener]:
+    def decorator(cls: type[BaseScreener]) -> type[BaseScreener]:
         if name in _registry:
             logger.warning("Overwriting screener: %s", name)
         _registry[name] = cls
@@ -39,7 +39,7 @@ def register(name: str):
     return decorator
 
 
-def get_screener(name: str) -> Type[BaseScreener]:
+def get_screener(name: str) -> type[BaseScreener]:
     """名前でスクリーナークラスを取得.
 
     Args:
@@ -87,6 +87,3 @@ def auto_discover() -> None:
 def clear_registry() -> None:
     """レジストリをクリアする（テスト用）."""
     _registry.clear()
-
-
-

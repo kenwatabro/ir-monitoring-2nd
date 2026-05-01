@@ -63,9 +63,7 @@ class TestConsoleFormatter:
         assert "30,000,000" in result  # 30兆円 = 30,000,000百万円
         assert "200.50" in result  # EPS
 
-    def test_format_sorts_by_fiscal_year(
-        self, sample_data: list[FinancialTimePoint]
-    ) -> None:
+    def test_format_sorts_by_fiscal_year(self, sample_data: list[FinancialTimePoint]) -> None:
         formatter = ConsoleFormatter()
         result = formatter.format(sample_data)
 
@@ -146,9 +144,7 @@ class TestMarkdownFormatter:
         assert "30,000,000" in result
         assert "200.50" in result
 
-    def test_format_creates_valid_markdown_table(
-        self, sample_data: list[FinancialTimePoint]
-    ) -> None:
+    def test_format_creates_valid_markdown_table(self, sample_data: list[FinancialTimePoint]) -> None:
         formatter = MarkdownFormatter()
         result = formatter.format(sample_data)
 
@@ -159,6 +155,3 @@ class TestMarkdownFormatter:
         # 各行のパイプ数が一致
         pipe_counts = [line.count("|") for line in lines]
         assert len(set(pipe_counts)) == 1  # 全て同じ
-
-
-

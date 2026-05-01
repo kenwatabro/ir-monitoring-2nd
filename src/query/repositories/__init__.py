@@ -12,6 +12,3 @@ __all__ = [
     "StatementItemInfo",
     "StatementRepository",
 ]
-
-
-

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 from ._base import BaseRepository
 
@@ -14,15 +13,15 @@ class CompanyInfo:
 
     id: int
     edinet_code: str
-    ticker: Optional[str]
+    ticker: str | None
     name_jp: str
-    name_en: Optional[str] = None
+    name_en: str | None = None
 
 
 class CompanyRepository(BaseRepository):
     """会社情報へのアクセスを提供."""
 
-    def find_by_ticker(self, ticker: str) -> Optional[CompanyInfo]:
+    def find_by_ticker(self, ticker: str) -> CompanyInfo | None:
         """証券コードで会社を検索.
 
         Args:
@@ -52,7 +51,7 @@ class CompanyRepository(BaseRepository):
                     )
         return None
 
-    def find_by_edinet_code(self, code: str) -> Optional[CompanyInfo]:
+    def find_by_edinet_code(self, code: str) -> CompanyInfo | None:
         """EDINETコードで会社を検索.
 
         Args:
@@ -82,7 +81,7 @@ class CompanyRepository(BaseRepository):
                     )
         return None
 
-    def find_by_id(self, company_id: int) -> Optional[CompanyInfo]:
+    def find_by_id(self, company_id: int) -> CompanyInfo | None:
         """会社IDで会社を検索.
 
         Args:

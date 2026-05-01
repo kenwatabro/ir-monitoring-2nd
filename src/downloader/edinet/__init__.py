@@ -3,4 +3,3 @@
 from .downloader import EdinetDownloader
 
 __all__ = ["EdinetDownloader"]
-

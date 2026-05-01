@@ -28,7 +28,6 @@ import sys
 import time
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Optional
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -54,7 +53,7 @@ logger = logging.getLogger(__name__)
 API_INTERVAL_SECS = 1.0
 
 
-def get_scanned_dates(dsn: Optional[str]) -> set[date]:
+def get_scanned_dates(dsn: str | None) -> set[date]:
     """DB から取得済み日付セットを返す。"""
     try:
         with get_connection(dsn) as conn:
@@ -66,7 +65,7 @@ def get_scanned_dates(dsn: Optional[str]) -> set[date]:
         return set()
 
 
-def mark_date_scanned(dsn: Optional[str], scan_date: date, doc_count: int) -> None:
+def mark_date_scanned(dsn: str | None, scan_date: date, doc_count: int) -> None:
     """スキャン済み日付を DB に記録する。"""
     try:
         with get_connection(dsn) as conn:
@@ -90,7 +89,7 @@ def download_range(
     start: date,
     end: date,
     output_dir: Path,
-    dsn: Optional[str],
+    dsn: str | None,
     skip_scanned: bool = True,
 ) -> int:
     """start〜end の日付範囲で EDINET から ZIP をダウンロードし、メタデータを記録する。
@@ -140,7 +139,7 @@ def download_range(
     return total_docs
 
 
-def main(argv: Optional[list[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="EDINET 書類を一括ダウンロードして PostgreSQL に登録する",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -200,9 +199,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     output_dir = args.output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    logger.info(
-        "=== EDINET 一括取得開始: %s 〜 %s ===", args.start, args.end
-    )
+    logger.info("=== EDINET 一括取得開始: %s 〜 %s ===", args.start, args.end)
     logger.info("ZIP 保存先: %s", output_dir)
 
     if not args.load_only:

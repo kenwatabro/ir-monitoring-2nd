@@ -2,18 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Dict, Optional, Type
-
 from src.ingest._base import BaseLoader
 from src.ingest.edinet.loader import EdinetLoader
 
-_loaders: Dict[str, Type[BaseLoader]] = {
+_loaders: dict[str, type[BaseLoader]] = {
     "edinet": EdinetLoader,
     # "tdnet": TdnetLoader,  # 将来追加
 }
 
 
-def get_loader(source: str, dsn: Optional[str] = None) -> BaseLoader:
+def get_loader(source: str, dsn: str | None = None) -> BaseLoader:
     """データソース名からローダーを取得.
 
     Args:
@@ -35,6 +33,3 @@ def get_loader(source: str, dsn: Optional[str] = None) -> BaseLoader:
 def list_sources() -> list[str]:
     """利用可能なデータソース一覧を返す."""
     return list(_loaders.keys())
-
-
-

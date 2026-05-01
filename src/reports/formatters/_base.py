@@ -61,6 +61,3 @@ class BaseFormatter(ABC):
         if value is None:
             return "-"
         return f"{value:,.2f}"
-
-
-

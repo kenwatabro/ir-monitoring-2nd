@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from src.query.repositories.company import CompanyRepository
 from src.query.timeseries import get_financial_history
@@ -27,7 +27,7 @@ class CompanyReportGenerator:
     def __init__(
         self,
         formatter: BaseFormatter | None = None,
-        dsn: Optional[str] = None,
+        dsn: str | None = None,
     ):
         """Initialize generator.
 
@@ -77,12 +77,7 @@ class CompanyReportGenerator:
         company_name = company.name_jp if company else edinet_code
 
         # 財務データを取得
-        history = get_financial_history_by_edinet_code(
-            edinet_code, years=years, dsn=self.dsn
-        )
+        history = get_financial_history_by_edinet_code(edinet_code, years=years, dsn=self.dsn)
 
         # フォーマットして返す
         return self.formatter.format(history, company_name=company_name)
-
-
-

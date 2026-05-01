@@ -2,8 +2,11 @@
 """重複 filings のクリーンアップ.
 
 同一 (company_id, period_end, fiscal_period) に複数 filing がある場合、
-訂正版（edinet_documents.doc_type_code='130'）または最新の edinet_doc_id を残し、
-古い版を削除する。
+訂正版（edinet_documents.doc_type_code='140'=訂正有報, '150'=訂正四半期）を優先して残し、
+次に最新の edinet_doc_id を残す。古い版を削除する。
+
+EDINET doc_type_code:
+  120=有報, 130=四半期報告書, 140=訂正有報, 150=訂正四半期報告書
 
 デフォルトはドライラン。--execute で実行。
 
@@ -49,8 +52,9 @@ def _resolve_dsn() -> str | None:
 
 
 # 同一 (company_id, period_end, fiscal_period) で残す filing を選ぶルール:
-#   優先度1: edinet_documents.doc_type_code = '130'（訂正版） > '120'（通常版）
+#   優先度1: 訂正版（140=訂正有報, 150=訂正四半期） > 通常版（120=有報, 130=四半期）
 #   優先度2: 同じ type_code 内では edinet_doc_id の辞書順最大（= 提出が遅いほう）
+# ※ 130 は四半期報告書であり訂正版ではないため旧コードは誤り
 SELECT_DELETE_IDS_SQL = """
 WITH ranked AS (
   SELECT
@@ -63,7 +67,13 @@ WITH ranked AS (
     ROW_NUMBER() OVER (
       PARTITION BY f.company_id, f.period_end, f.fiscal_period
       ORDER BY
-        CASE ed.doc_type_code WHEN '130' THEN 0 WHEN '120' THEN 1 ELSE 2 END,
+        CASE ed.doc_type_code
+          WHEN '140' THEN 0
+          WHEN '150' THEN 1
+          WHEN '120' THEN 2
+          WHEN '130' THEN 3
+          ELSE 4
+        END,
         f.edinet_doc_id DESC
     ) AS rn
   FROM filings f
@@ -81,9 +91,7 @@ SELECT id FROM ranked WHERE rn > 1
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="重複 filings クリーンアップ")
-    ap.add_argument(
-        "--execute", action="store_true", help="実際に削除する（指定しない場合ドライラン）"
-    )
+    ap.add_argument("--execute", action="store_true", help="実際に削除する（指定しない場合ドライラン）")
     args = ap.parse_args()
 
     dsn = _resolve_dsn()
@@ -118,7 +126,7 @@ def main() -> None:
 
         # 残す側のサンプル表示
         print("\n-- サンプル（重複グループ5件分の『残す側』）")
-        cur.execute(f"""
+        cur.execute("""
             WITH ranked AS (
               SELECT
                 f.id, f.edinet_doc_id, ed.doc_type_code, c.ticker, c.name_jp,
@@ -126,7 +134,7 @@ def main() -> None:
                 ROW_NUMBER() OVER (
                   PARTITION BY f.company_id, f.period_end, f.fiscal_period
                   ORDER BY
-                    CASE ed.doc_type_code WHEN '130' THEN 0 WHEN '120' THEN 1 ELSE 2 END,
+                    CASE ed.doc_type_code WHEN '140' THEN 0 WHEN '150' THEN 1 WHEN '120' THEN 2 WHEN '130' THEN 3 ELSE 4 END,
                     f.edinet_doc_id DESC
                 ) AS rn
               FROM filings f

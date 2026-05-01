@@ -11,6 +11,3 @@ __all__ = [
     "CsvFormatter",
     "MarkdownFormatter",
 ]
-
-
-

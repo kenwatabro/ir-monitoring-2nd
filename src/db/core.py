@@ -3,17 +3,16 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Iterator, Optional
 
 import psycopg2
 from psycopg2.extensions import connection as PgConnection
 
-
 DEFAULT_PGURL = "postgresql://ir_user:ir_password@localhost:5432/ir_monitoring"
 
 
-def get_pg_dsn(explicit_dsn: Optional[str] = None) -> str:
+def get_pg_dsn(explicit_dsn: str | None = None) -> str:
     """接続文字列を返す。
 
     優先順位:
@@ -30,7 +29,7 @@ def get_pg_dsn(explicit_dsn: Optional[str] = None) -> str:
 
 
 @contextmanager
-def get_connection(dsn: Optional[str] = None) -> Iterator[PgConnection]:
+def get_connection(dsn: str | None = None) -> Iterator[PgConnection]:
     """PostgreSQLコネクションを contextmanager で提供する."""
     conn = psycopg2.connect(get_pg_dsn(dsn))
     try:

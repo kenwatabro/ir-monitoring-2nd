@@ -71,9 +71,7 @@ class EPSGrowthScreener(BaseScreener):
             return ScreenerResult(passed=False, details={"reason": "EPS値がNone"})
 
         if old_eps <= 0:
-            return ScreenerResult(
-                passed=False, details={"reason": "基準年EPSが0以下", "old_eps": old_eps}
-            )
+            return ScreenerResult(passed=False, details={"reason": "基準年EPSが0以下", "old_eps": old_eps})
 
         growth_rate = (new_eps - old_eps) / old_eps
         passed = growth_rate >= self.min_growth_rate
@@ -88,4 +86,3 @@ class EPSGrowthScreener(BaseScreener):
                 "years": self.years,
             },
         )
-

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Iterable, Iterator, List, Optional
 import xml.etree.ElementTree as ET
 import zipfile
+from collections.abc import Iterable, Iterator
+from pathlib import Path
 
 import pandas as pd
 
@@ -47,11 +47,9 @@ def iter_facts_from_zip(zip_path: Path | str) -> Iterator[XbrlFact]:
         )
 
 
-def collect_facts_from_zip(
-    zip_path: Path | str, limit: Optional[int] = None
-) -> List[XbrlFact]:
+def collect_facts_from_zip(zip_path: Path | str, limit: int | None = None) -> list[XbrlFact]:
     """ZIPから fact を全件、または limit 件だけリストに詰めて返す。"""
-    facts: List[XbrlFact] = []
+    facts: list[XbrlFact] = []
     for i, fact in enumerate(iter_facts_from_zip(zip_path)):
         facts.append(fact)
         if limit is not None and i + 1 >= limit:
@@ -87,7 +85,7 @@ def add_local_name_column(df: pd.DataFrame, column: str = "local_name") -> pd.Da
     return df
 
 
-def pick_current_value(df: pd.DataFrame, local_names: List[str]) -> Optional[float]:
+def pick_current_value(df: pd.DataFrame, local_names: list[str]) -> float | None:
     """指定された local_name 候補から当期の値を1つ選んで返す.
 
     優先順位:
@@ -113,9 +111,7 @@ def pick_current_value(df: pd.DataFrame, local_names: List[str]) -> Optional[flo
     ctx = candidates["context_ref"].fillna("")
 
     # 1. 連結・当期
-    consolidated = candidates[
-        ctx.str.contains("CurrentYear") & ~ctx.str.contains("NonConsolidated")
-    ]
+    consolidated = candidates[ctx.str.contains("CurrentYear") & ~ctx.str.contains("NonConsolidated")]
     if not consolidated.empty:
         preferred = consolidated
     else:
@@ -127,9 +123,9 @@ def pick_current_value(df: pd.DataFrame, local_names: List[str]) -> Optional[flo
 
     # local_names の並び順を優先度とみなす（yaml で先頭ほど優先）
     name_order = {name: i for i, name in enumerate(local_names)}
-    preferred = preferred.assign(
-        _prio=preferred["local_name"].map(name_order).fillna(len(local_names))
-    ).sort_values("_prio")
+    preferred = preferred.assign(_prio=preferred["local_name"].map(name_order).fillna(len(local_names))).sort_values(
+        "_prio"
+    )
 
     value_str = preferred.iloc[0]["value"]
     try:
@@ -138,9 +134,7 @@ def pick_current_value(df: pd.DataFrame, local_names: List[str]) -> Optional[flo
         return None
 
 
-def pick_instant_value(
-    df: pd.DataFrame, local_names: List[str], context_keyword: str
-) -> Optional[float]:
+def pick_instant_value(df: pd.DataFrame, local_names: list[str], context_keyword: str) -> float | None:
     """指定された local_name と context キーワードから、期首/期末などの値を1つ選んで返す。
 
     例:
@@ -159,9 +153,7 @@ def pick_instant_value(
     if candidates.empty:
         return None
 
-    preferred = candidates[
-        candidates["context_ref"].fillna("").str.contains(context_keyword)
-    ]
+    preferred = candidates[candidates["context_ref"].fillna("").str.contains(context_keyword)]
     if preferred.empty:
         return None
 

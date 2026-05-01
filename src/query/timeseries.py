@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
-from typing import Optional
 
 from .repositories.company import CompanyRepository
 from .repositories.filing import FilingRepository
@@ -15,20 +14,20 @@ from .repositories.statement import StatementRepository
 class FinancialTimePoint:
     """時系列上の1点（1決算期分）."""
 
-    fiscal_year: Optional[int]
-    fiscal_period: Optional[str]  # 'FY', 'Q1', 'Q2', 'Q3'
-    period_end: Optional[date]
-    net_sales: Optional[float]
-    operating_income: Optional[float]
-    ordinary_income: Optional[float]
-    net_income: Optional[float]
-    eps: Optional[float]
+    fiscal_year: int | None
+    fiscal_period: str | None  # 'FY', 'Q1', 'Q2', 'Q3'
+    period_end: date | None
+    net_sales: float | None
+    operating_income: float | None
+    ordinary_income: float | None
+    net_income: float | None
+    eps: float | None
 
 
 def get_financial_history(
     ticker: str,
     years: int = 5,
-    dsn: Optional[str] = None,
+    dsn: str | None = None,
 ) -> list[FinancialTimePoint]:
     """指定銘柄の過去N年分の財務データを取得.
 
@@ -82,7 +81,7 @@ def get_financial_history(
 def get_financial_history_by_edinet_code(
     edinet_code: str,
     years: int = 5,
-    dsn: Optional[str] = None,
+    dsn: str | None = None,
 ) -> list[FinancialTimePoint]:
     """EDINETコードで指定した銘柄の過去N年分の財務データを取得.
 
@@ -131,8 +130,8 @@ def get_financial_history_by_edinet_code(
 def get_all_periods_history(
     ticker: str,
     years: int = 5,
-    fiscal_period: Optional[str] = None,
-    dsn: Optional[str] = None,
+    fiscal_period: str | None = None,
+    dsn: str | None = None,
 ) -> list[FinancialTimePoint]:
     """指定銘柄の財務データを取得（FY・四半期を含む）.
 

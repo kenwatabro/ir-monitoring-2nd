@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Dict, Type
-
 from src.parser.edinet.xbrl_parser import (
     BalanceSheetSummary,
     CashFlowSummary,
@@ -12,7 +10,7 @@ from src.parser.edinet.xbrl_parser import (
 
 # 各データソースのサマリークラスを登録
 # EDINETは既にサマリークラスがあるため、それらを直接使用
-_parsers: Dict[str, Dict[str, Type]] = {
+_parsers: dict[str, dict[str, type]] = {
     "edinet": {
         "financial": FinancialSummary,
         "cash_flow": CashFlowSummary,
@@ -22,7 +20,7 @@ _parsers: Dict[str, Dict[str, Type]] = {
 }
 
 
-def get_parser(source: str, summary_type: str = "financial") -> Type:
+def get_parser(source: str, summary_type: str = "financial") -> type:
     """データソース名とサマリータイプからパーサークラスを取得.
 
     Args:
@@ -61,6 +59,3 @@ def list_summary_types(source: str) -> list[str]:
     if source not in _parsers:
         return []
     return list(_parsers[source].keys())
-
-
-

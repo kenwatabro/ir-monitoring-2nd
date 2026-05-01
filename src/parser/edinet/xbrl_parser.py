@@ -4,34 +4,33 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional
 
 import pandas as pd
 
-from ._base import BaseSummary
-from . import utils
 from ..configs import load_edinet_config
+from . import utils
+from ._base import BaseSummary
 
 
 @dataclass(slots=True)
 class FinancialSummary(BaseSummary):
     """売上高・経常利益・当期純利益・EPS などの決算サマリー."""
 
-    net_sales: Optional[float] = None
-    operating_income: Optional[float] = None
-    ordinary_income: Optional[float] = None
-    net_income: Optional[float] = None
-    eps: Optional[float] = None
+    net_sales: float | None = None
+    operating_income: float | None = None
+    ordinary_income: float | None = None
+    net_income: float | None = None
+    eps: float | None = None
 
     @classmethod
-    def parse_zip(cls, zip_path: Path | str) -> "FinancialSummary":
+    def parse_zip(cls, zip_path: Path | str) -> FinancialSummary:
         """EDINETのXBRL ZIPから FinancialSummary を抽出するエントリポイント。"""
         facts = utils.collect_facts_from_zip(zip_path)
         df = utils.facts_to_dataframe(facts)
         return cls.from_dataframe(df)
 
     @classmethod
-    def from_dataframe(cls, df: pd.DataFrame) -> "FinancialSummary":
+    def from_dataframe(cls, df: pd.DataFrame) -> FinancialSummary:
         """すでにfact一覧を持っている DataFrame からサマリーを生成する."""
         if df.empty:
             return cls()
@@ -40,7 +39,7 @@ class FinancialSummary(BaseSummary):
 
         config = load_edinet_config().get("financial", {}).get("fields", {})
 
-        def _pick(field_name: str) -> Optional[float]:
+        def _pick(field_name: str) -> float | None:
             spec = config.get(field_name)
             if not spec:
                 return None
@@ -70,22 +69,22 @@ class CashFlowSummary(BaseSummary):
     具体的なマッピングは今後の検討に委ねる。
     """
 
-    operating_cf: Optional[float] = None
-    investing_cf: Optional[float] = None
-    financing_cf: Optional[float] = None
-    net_change_in_cash: Optional[float] = None
-    cash_and_equivalents_begin: Optional[float] = None
-    cash_and_equivalents_end: Optional[float] = None
+    operating_cf: float | None = None
+    investing_cf: float | None = None
+    financing_cf: float | None = None
+    net_change_in_cash: float | None = None
+    cash_and_equivalents_begin: float | None = None
+    cash_and_equivalents_end: float | None = None
 
     @classmethod
-    def parse_zip(cls, zip_path: Path | str) -> "CashFlowSummary":
+    def parse_zip(cls, zip_path: Path | str) -> CashFlowSummary:
         """EDINETのXBRL ZIPから CF サマリを抽出するエントリポイント。"""
         facts = utils.collect_facts_from_zip(zip_path)
         df = utils.facts_to_dataframe(facts)
         return cls.from_dataframe(df)
 
     @classmethod
-    def from_dataframe(cls, df: pd.DataFrame) -> "CashFlowSummary":
+    def from_dataframe(cls, df: pd.DataFrame) -> CashFlowSummary:
         """すでにfact一覧を持っている DataFrame から CFサマリを生成する."""
         if df.empty:
             return cls()
@@ -93,7 +92,7 @@ class CashFlowSummary(BaseSummary):
         df = utils.add_local_name_column(df)
         config = load_edinet_config().get("cash_flow", {}).get("fields", {})
 
-        def _pick(field_name: str) -> Optional[float]:
+        def _pick(field_name: str) -> float | None:
             spec = config.get(field_name)
             if not spec:
                 return None
@@ -122,33 +121,33 @@ class BalanceSheetSummary(BaseSummary):
     """貸借対照表の主要項目サマリー."""
 
     # 資産サイド
-    total_assets: Optional[float] = None
-    current_assets: Optional[float] = None
-    noncurrent_assets: Optional[float] = None
-    cash_and_deposits: Optional[float] = None
+    total_assets: float | None = None
+    current_assets: float | None = None
+    noncurrent_assets: float | None = None
+    cash_and_deposits: float | None = None
 
     # 負債サイド
-    total_liabilities: Optional[float] = None
-    current_liabilities: Optional[float] = None
-    noncurrent_liabilities: Optional[float] = None
+    total_liabilities: float | None = None
+    current_liabilities: float | None = None
+    noncurrent_liabilities: float | None = None
 
     # 純資産サイド
-    net_assets: Optional[float] = None
-    shareholders_equity: Optional[float] = None
+    net_assets: float | None = None
+    shareholders_equity: float | None = None
 
     # 指標系
-    equity_ratio: Optional[float] = None
-    net_assets_per_share: Optional[float] = None
+    equity_ratio: float | None = None
+    net_assets_per_share: float | None = None
 
     @classmethod
-    def parse_zip(cls, zip_path: Path | str) -> "BalanceSheetSummary":
+    def parse_zip(cls, zip_path: Path | str) -> BalanceSheetSummary:
         """EDINETのXBRL ZIPから BS サマリを抽出するエントリポイント。"""
         facts = utils.collect_facts_from_zip(zip_path)
         df = utils.facts_to_dataframe(facts)
         return cls.from_dataframe(df)
 
     @classmethod
-    def from_dataframe(cls, df: pd.DataFrame) -> "BalanceSheetSummary":
+    def from_dataframe(cls, df: pd.DataFrame) -> BalanceSheetSummary:
         """すでにfact一覧を持っている DataFrame から BSサマリを生成する."""
         if df.empty:
             return cls()
@@ -156,7 +155,7 @@ class BalanceSheetSummary(BaseSummary):
         df = utils.add_local_name_column(df)
         config = load_edinet_config().get("balance_sheet", {}).get("fields", {})
 
-        def _pick(field_name: str) -> Optional[float]:
+        def _pick(field_name: str) -> float | None:
             spec = config.get(field_name)
             if not spec:
                 return None
@@ -175,11 +174,7 @@ class BalanceSheetSummary(BaseSummary):
         total_liabilities = _pick("total_liabilities")
 
         # 総負債がタグから取れない場合は「資産－純資産」で近似
-        if (
-            total_liabilities is None
-            and total_assets is not None
-            and net_assets is not None
-        ):
+        if total_liabilities is None and total_assets is not None and net_assets is not None:
             total_liabilities = total_assets - net_assets
 
         return cls(
@@ -197,7 +192,7 @@ class BalanceSheetSummary(BaseSummary):
         )
 
 
-def extract_summary_metrics(zip_path: Path | str) -> Dict[str, Optional[float]]:
+def extract_summary_metrics(zip_path: Path | str) -> dict[str, float | None]:
     """従来インターフェース互換の「決算サマリーを dict で返す」ラッパー。"""
     summary = FinancialSummary.parse_zip(zip_path)
     return summary.to_dict()

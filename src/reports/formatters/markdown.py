@@ -42,9 +42,7 @@ class MarkdownFormatter(BaseFormatter):
         lines.append("|--------|-------:|--------:|--------:|------:|----:|")
 
         # データ行（古い順に並べ替え）
-        sorted_data = sorted(
-            data, key=lambda x: (x.fiscal_year or 0, x.period_end or "")
-        )
+        sorted_data = sorted(data, key=lambda x: (x.fiscal_year or 0, x.period_end or ""))
         for point in sorted_data:
             fiscal = f"{point.fiscal_year or '-'} {point.fiscal_period or ''}"
             row = (
@@ -61,6 +59,3 @@ class MarkdownFormatter(BaseFormatter):
         lines.append("*金額は百万円単位*")
 
         return "\n".join(lines)
-
-
-

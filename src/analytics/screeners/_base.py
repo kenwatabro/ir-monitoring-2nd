@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclass
@@ -18,7 +18,7 @@ class ScreenerResult:
     """
 
     passed: bool
-    score: Optional[float] = None
+    score: float | None = None
     details: dict[str, Any] = field(default_factory=dict)
 
 
@@ -81,9 +81,7 @@ class BaseScreener(ABC):
         """
         return [c for c in companies if self.evaluate(c).passed]
 
-    def rank(
-        self, companies: list[dict[str, Any]]
-    ) -> list[tuple[dict[str, Any], ScreenerResult]]:
+    def rank(self, companies: list[dict[str, Any]]) -> list[tuple[dict[str, Any], ScreenerResult]]:
         """銘柄をスコア順にランク付け.
 
         Args:
@@ -96,4 +94,3 @@ class BaseScreener(ABC):
         # passed=True のみ、スコア降順でソート
         passed = [(c, r) for c, r in results if r.passed]
         return sorted(passed, key=lambda x: x[1].score or 0, reverse=True)
-

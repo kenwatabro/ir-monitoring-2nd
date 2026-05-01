@@ -17,7 +17,6 @@ import argparse
 import logging
 import sys
 from pathlib import Path
-from typing import Optional
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -37,19 +36,15 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def get_incomplete_edinet_codes(dsn: Optional[str]) -> set[str]:
+def get_incomplete_edinet_codes(dsn: str | None) -> set[str]:
     """ticker または name_jp が未設定の会社の edinet_code 一覧を返す。"""
     with get_connection(dsn) as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                "SELECT edinet_code FROM companies WHERE ticker IS NULL OR name_jp = ''"
-            )
+            cur.execute("SELECT edinet_code FROM companies WHERE ticker IS NULL OR name_jp = ''")
             return {row[0] for row in cur.fetchall()}
 
 
-def get_doc_ids_for_edinet_codes(
-    dsn: Optional[str], edinet_codes: set[str]
-) -> dict[str, str]:
+def get_doc_ids_for_edinet_codes(dsn: str | None, edinet_codes: set[str]) -> dict[str, str]:
     """edinet_code → edinet_doc_id のマッピングを返す（各社1件）。"""
     if not edinet_codes:
         return {}
@@ -69,9 +64,7 @@ def get_doc_ids_for_edinet_codes(
             return {row[0]: row[1] for row in cur.fetchall()}
 
 
-def update_company(
-    dsn: Optional[str], edinet_code: str, ticker: str, name_jp: str
-) -> None:
+def update_company(dsn: str | None, edinet_code: str, ticker: str, name_jp: str) -> None:
     with get_connection(dsn) as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -87,7 +80,7 @@ def update_company(
         conn.commit()
 
 
-def main(argv: Optional[list[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="ticker未設定の会社にZIPからtickerを設定する")
     parser.add_argument("--edinet-dir", type=Path, default=Path("data/raw/edinet"))
     parser.add_argument("--dsn", default=None)
@@ -123,7 +116,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             continue
 
         meta = extract_basic_metadata_from_zip(zip_path)
-        ticker  = meta.get("security_code", "")
+        ticker = meta.get("security_code", "")
         name_jp = meta.get("company_name", "")
 
         if not ticker and not name_jp:
@@ -133,19 +126,25 @@ def main(argv: Optional[list[str]] = None) -> int:
         if args.dry_run:
             logger.info(
                 "[DRY-RUN] %s → name=%s ticker=%s",
-                edinet_code, name_jp or "(不変)", ticker or "(不変)",
+                edinet_code,
+                name_jp or "(不変)",
+                ticker or "(不変)",
             )
         else:
             update_company(args.dsn, edinet_code, ticker, name_jp)
             logger.info(
                 "Updated: %s → name=%s ticker=%s",
-                edinet_code, name_jp or "(不変)", ticker or "(不変)",
+                edinet_code,
+                name_jp or "(不変)",
+                ticker or "(不変)",
             )
         updated += 1
 
     logger.info(
         "=== 完了: %d件更新, %d件ZIPなし, %d件ticker取得不可 ===",
-        updated, not_found, no_ticker,
+        updated,
+        not_found,
+        no_ticker,
     )
     return 0
 
