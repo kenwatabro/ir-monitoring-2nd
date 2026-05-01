@@ -111,22 +111,22 @@ class TestGetFinancialHistory:
 
         # Statement mock
         mock_statement_repo = MagicMock()
-        mock_statement_repo.get_financial_summary.side_effect = [
-            {
+        mock_statement_repo.get_financial_summaries_batch.return_value = {
+            100: {
                 "net_sales": 30000000000000,
                 "operating_income": 2500000000000,
                 "ordinary_income": 2800000000000,
                 "net_income": 2000000000000,
                 "eps": 200.5,
             },
-            {
+            99: {
                 "net_sales": 28000000000000,
                 "operating_income": 2200000000000,
                 "ordinary_income": 2500000000000,
                 "net_income": 1800000000000,
                 "eps": 180.0,
             },
-        ]
+        }
         mock_statement_repo_cls.return_value = mock_statement_repo
 
         result = get_financial_history("7203", years=5)

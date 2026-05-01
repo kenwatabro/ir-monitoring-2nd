@@ -68,10 +68,10 @@ class TestInsertFiling:
         result = insert_filing(cur, 1, "S100XXXX", meta, 2024, "FY", "yuho")
         assert result == 77
         params = cur.execute.call_args[0][1]
-        assert params[0] == 1           # company_id
+        assert params[0] == 1  # company_id
         assert params[1] == "S100XXXX"  # edinet_doc_id
-        assert params[4] == 2024        # fiscal_year
-        assert params[5] == "FY"        # fiscal_period
+        assert params[4] == 2024  # fiscal_year
+        assert params[5] == "FY"  # fiscal_period
 
 
 class TestUpdateFilingMeta:
