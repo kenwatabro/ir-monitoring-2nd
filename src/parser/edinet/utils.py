@@ -164,6 +164,92 @@ def pick_instant_value(df: pd.DataFrame, local_names: list[str], context_keyword
         return None
 
 
+def extract_zip_metadata(zip_path: Path | str) -> dict[str, str]:
+    """XBRL ZIP から会社コード・社名・期間などのメタ情報を抽出する.
+
+    Returns:
+        edinet_code, company_name, security_code, period_start, period_end を含む dict。
+        取得できなかったキーは空文字列。
+    """
+    meta: dict[str, str] = {
+        "edinet_code": "",
+        "company_name": "",
+        "security_code": "",
+        "period_start": "",
+        "period_end": "",
+    }
+
+    try:
+        with zipfile.ZipFile(zip_path) as zf:
+            xbrl_name = find_instance_xbrl_name(zf)
+            with zf.open(xbrl_name) as fh:
+                tree = ET.parse(fh)
+    except Exception:  # noqa: BLE001
+        return meta
+
+    root = tree.getroot()
+    contexts: list[ET.Element] = [elem for elem in root if elem.tag.lower().endswith("context")]
+
+    chosen_ctx: ET.Element | None = None
+    for ctx in contexts:
+        if "CurrentYear" in ctx.attrib.get("id", "") and ctx.find(".//{*}startDate") is not None:
+            chosen_ctx = ctx
+            break
+    if chosen_ctx is None and contexts:
+        chosen_ctx = contexts[0]
+
+    if chosen_ctx is not None:
+        ident = chosen_ctx.find(".//{*}identifier")
+        if ident is not None and ident.text:
+            meta["edinet_code"] = ident.text.strip()
+
+        period = chosen_ctx.find(".//{*}period")
+        if period is not None:
+            start = period.find(".//{*}startDate")
+            end = period.find(".//{*}endDate")
+            instant = period.find(".//{*}instant")
+            if start is not None and start.text:
+                meta["period_start"] = start.text.strip()
+            if end is not None and end.text:
+                meta["period_end"] = end.text.strip()
+            elif instant is not None and instant.text:
+                meta["period_end"] = instant.text.strip()
+
+    def _local(tag: str) -> str:
+        return tag.split("}", 1)[1] if "}" in tag else tag
+
+    for elem in root.iter():
+        lname = _local(elem.tag)
+        if not elem.text:
+            continue
+        text = elem.text.strip()
+
+        if not meta["company_name"] and lname in (
+            "CompanyNameCoverPage",
+            "CompanyName",
+            "CompanyNameDEI",
+            "FundNameInJapaneseDEI",
+            "FundNameCoverPage",
+        ):
+            meta["company_name"] = text
+
+        if not meta["security_code"] and lname in (
+            "SecurityCode",
+            "SecurityCodeCoverPage",
+            "SecurityCodeDEI",
+        ):
+            code = text.strip()
+            # EDINETは5桁（末尾0付き）で格納する場合がある → 4桁に正規化
+            if len(code) == 5 and code.endswith("0"):
+                code = code[:4]
+            meta["security_code"] = code
+
+        if meta["company_name"] and meta["security_code"]:
+            break
+
+    return meta
+
+
 __all__ = [
     "find_instance_xbrl_name",
     "iter_facts_from_zip",
@@ -172,4 +258,5 @@ __all__ = [
     "add_local_name_column",
     "pick_current_value",
     "pick_instant_value",
+    "extract_zip_metadata",
 ]

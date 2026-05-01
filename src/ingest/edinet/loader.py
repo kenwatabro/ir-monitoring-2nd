@@ -3,19 +3,22 @@
 from __future__ import annotations
 
 import logging
-import xml.etree.ElementTree as ET
-import zipfile
 from datetime import date
 from pathlib import Path
-from typing import Any
-
-from psycopg2.extras import execute_values
 
 from src.db import get_connection
 from src.ingest._base import BaseLoader
+from src.ingest.edinet.writer import (
+    ensure_company,
+    find_existing_filing_id,
+    get_existing_doc_ids,
+    insert_filing,
+    insert_statements_and_items,
+    update_filing_meta,
+)
 from src.parser.configs import load_edinet_config
 from src.parser.edinet import utils as xbrl_utils
-from src.parser.edinet.utils import find_instance_xbrl_name
+from src.parser.edinet.utils import extract_zip_metadata
 from src.parser.edinet.xbrl_parser import (
     BalanceSheetSummary,
     CashFlowSummary,
@@ -25,103 +28,10 @@ from src.parser.edinet.xbrl_parser import (
 logger = logging.getLogger(__name__)
 
 
-def extract_basic_metadata_from_zip(zip_path: Path) -> dict[str, str]:
-    """XBRLインスタンスから会社コード・社名・期間などのメタ情報をざっくり抽出する."""
-    meta: dict[str, str] = {
-        "edinet_code": "",
-        "company_name": "",
-        "security_code": "",
-        "period_start": "",
-        "period_end": "",
-    }
-
-    try:
-        with zipfile.ZipFile(zip_path) as zf:
-            xbrl_name = find_instance_xbrl_name(zf)
-            with zf.open(xbrl_name) as fh:
-                tree = ET.parse(fh)
-    except Exception:  # noqa: BLE001
-        # xbrl不在等はサマリーでカウントするのでログは出さない
-        return meta
-
-    root = tree.getroot()
-
-    contexts: list[ET.Element] = [elem for elem in root if elem.tag.lower().endswith("context")]
-
-    chosen_ctx: ET.Element | None = None
-    for ctx in contexts:
-        ctx_id = ctx.attrib.get("id", "")
-        if "CurrentYear" in ctx_id and ctx.find(".//{*}startDate") is not None:
-            chosen_ctx = ctx
-            break
-    if chosen_ctx is None and contexts:
-        chosen_ctx = contexts[0]
-
-    if chosen_ctx is not None:
-        ident = chosen_ctx.find(".//{*}identifier")
-        if ident is not None and ident.text:
-            meta["edinet_code"] = ident.text.strip()
-
-        period = chosen_ctx.find(".//{*}period")
-        if period is not None:
-            start = period.find(".//{*}startDate")
-            end = period.find(".//{*}endDate")
-            instant = period.find(".//{*}instant")
-            if start is not None and start.text:
-                meta["period_start"] = start.text.strip()
-            if end is not None and end.text:
-                meta["period_end"] = end.text.strip()
-            elif instant is not None and instant.text:
-                meta["period_end"] = instant.text.strip()
-
-    # 会社名・銘柄コードなど（存在すれば）を拾う
-    def _local_name(tag: str) -> str:
-        if "}" in tag:
-            return tag.split("}", 1)[1]
-        return tag
-
-    for elem in root.iter():
-        lname = _local_name(elem.tag)
-        if not elem.text:
-            continue
-        text = elem.text.strip()
-
-        if not meta["company_name"] and lname in (
-            "CompanyNameCoverPage",
-            "CompanyName",
-            "CompanyNameDEI",
-            # 投資信託・ETF はファンド名タグを使う
-            "FundNameInJapaneseDEI",
-            "FundNameCoverPage",
-        ):
-            meta["company_name"] = text
-
-        if not meta["security_code"] and lname in (
-            "SecurityCode",
-            "SecurityCodeCoverPage",
-            "SecurityCodeDEI",
-        ):
-            # EDINETは5桁（末尾0付き）で格納する場合がある → 4桁の証券コードに正規化
-            code = text.strip()
-            if len(code) == 5 and code.endswith("0"):
-                code = code[:4]
-            meta["security_code"] = code
-
-        if meta["company_name"] and meta["security_code"]:
-            break
-
-    return meta
-
-
 def _infer_fiscal_info(period_start: str, period_end: str) -> tuple[int | None, str | None]:
     """期間の長さから決算年度と期（FY, Q1〜Q3）を推定する.
 
-    period_start と period_end の差分（日数）で判断する:
-      >= 330日 → FY（本決算）
-      >= 240日 → Q3（3四半期累積）
-      >= 150日 → Q2（半期）
-      それ以下 → Q1（第1四半期）
-
+    >= 330日 → FY / >= 240日 → Q3 / >= 150日 → Q2 / それ以下 → Q1
     月のみで判断する旧ロジックは 12月決算企業の本決算を Q3 に誤分類していた。
     """
     if not period_end:
@@ -136,62 +46,21 @@ def _infer_fiscal_info(period_start: str, period_end: str) -> tuple[int | None, 
     if period_start:
         try:
             start_date = date.fromisoformat(period_start)
-            duration_days = (end_date - start_date).days
-            if duration_days >= 330:
+            days = (end_date - start_date).days
+            if days >= 330:
                 return fiscal_year, "FY"
-            elif duration_days >= 240:
+            if days >= 240:
                 return fiscal_year, "Q3"
-            elif duration_days >= 150:
+            if days >= 150:
                 return fiscal_year, "Q2"
-            else:
-                return fiscal_year, "Q1"
+            return fiscal_year, "Q1"
         except ValueError:
             pass
 
-    # period_start が解析できない場合は期を None とする
     return fiscal_year, None
 
 
-def _ensure_company(cur, edinet_code: str, company_name: str, security_code: str) -> int:
-    """companies に会社をINSERT or 更新して company_id を返す."""
-    cur.execute(
-        """
-        INSERT INTO companies (edinet_code, ticker, name_jp, name_en)
-        VALUES (%s, %s, %s, %s)
-        ON CONFLICT (edinet_code) DO UPDATE
-        SET
-            ticker = COALESCE(EXCLUDED.ticker, companies.ticker),
-            name_jp = COALESCE(NULLIF(EXCLUDED.name_jp, ''), companies.name_jp),
-            name_en = COALESCE(NULLIF(EXCLUDED.name_en, ''), companies.name_en)
-        RETURNING id
-        """,
-        (edinet_code, security_code or None, company_name or "", ""),
-    )
-    company_id = cur.fetchone()[0]
-    return company_id
-
-
-def _find_existing_filing_id(cur, company_id: int, edinet_doc_id: str) -> int | None:
-    cur.execute(
-        """
-        SELECT id
-        FROM filings
-        WHERE company_id = %s AND edinet_doc_id = %s
-        """,
-        (company_id, edinet_doc_id),
-    )
-    row = cur.fetchone()
-    return int(row[0]) if row else None
-
-
-def _get_existing_doc_ids(cur) -> set[str]:
-    """DBに存在する全ての edinet_doc_id を取得（早期スキップ用）."""
-    cur.execute("SELECT edinet_doc_id FROM filings")
-    return {row[0] for row in cur.fetchall()}
-
-
 def _infer_document_type(fiscal_period: str | None) -> str | None:
-    """fiscal_period から document_type を推定する."""
     if fiscal_period == "FY":
         return "yuho"
     if fiscal_period in ("Q1", "Q2", "Q3"):
@@ -199,134 +68,10 @@ def _infer_document_type(fiscal_period: str | None) -> str | None:
     return None
 
 
-def _insert_filing(
-    cur,
-    company_id: int,
-    edinet_doc_id: str,
-    meta: dict[str, str],
-) -> int:
-    fiscal_year, fiscal_period = _infer_fiscal_info(
-        meta.get("period_start") or "",
-        meta.get("period_end") or "",
-    )
-    document_type = _infer_document_type(fiscal_period)
-
-    cur.execute(
-        """
-        INSERT INTO filings (
-            company_id,
-            edinet_doc_id,
-            period_start,
-            period_end,
-            fiscal_year,
-            fiscal_period,
-            is_consolidated,
-            document_type,
-            submitted_at,
-            source_zip_path
-        )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        RETURNING id
-        """,
-        (
-            company_id,
-            edinet_doc_id,
-            meta.get("period_start") or None,
-            meta.get("period_end") or None,
-            fiscal_year,
-            fiscal_period,
-            True,
-            document_type,
-            None,
-            str(meta.get("source_zip_path") or ""),
-        ),
-    )
-    filing_id = cur.fetchone()[0]
-    return filing_id
-
-
-def _insert_statements_and_items(
-    cur,
-    filing_id: int,
-    cfg: dict[str, Any],
-    fs: FinancialSummary,
-    cf: CashFlowSummary,
-    bs: BalanceSheetSummary,
-) -> None:
-    sections: list[tuple[str, str, Any]] = [
-        ("PL", "financial", fs),
-        ("CF", "cash_flow", cf),
-        ("BS", "balance_sheet", bs),
-    ]
-
-    items_values: list[tuple[int, str, str, float | None, int]] = []
-
-    for statement_type, cfg_key, summary_obj in sections:
-        # statements — ON CONFLICT で再実行・並行実行時の重複を防ぐ
-        cur.execute(
-            """
-            INSERT INTO statements (
-                filing_id,
-                statement_type,
-                currency,
-                unit,
-                role_uri,
-                statement_label
-            )
-            VALUES (%s, %s, %s, %s, %s, %s)
-            ON CONFLICT (filing_id, statement_type)
-                DO UPDATE SET statement_type = EXCLUDED.statement_type
-            RETURNING id
-            """,
-            (filing_id, statement_type, None, None, None, None),
-        )
-        statement_id = int(cur.fetchone()[0])
-
-        # items
-        fields_cfg: dict[str, dict[str, Any]] = cfg.get(cfg_key, {}).get("fields", {})
-        data: dict[str, Any] = summary_obj.to_dict()
-
-        order_index = 0
-        for key, value in data.items():
-            order_index += 1
-            spec = fields_cfg.get(key, {})
-            label_ja = spec.get("label_ja", key)
-            items_values.append(
-                (statement_id, key, label_ja, value, order_index),
-            )
-
-    if items_values:
-        execute_values(
-            cur,
-            """
-            INSERT INTO statement_items (
-                statement_id,
-                item_key,
-                label_ja,
-                value_numeric,
-                order_index
-            )
-            VALUES %s
-            ON CONFLICT (statement_id, item_key)
-                DO UPDATE SET
-                    value_numeric = EXCLUDED.value_numeric,
-                    label_ja = EXCLUDED.label_ja,
-                    order_index = EXCLUDED.order_index
-            """,
-            items_values,
-        )
-
-
 class EdinetLoader(BaseLoader):
     """EDINET XBRLファイルをDBにロードするローダー."""
 
     def load_directory(self, source_dir: Path | str, max_files: int | None = None) -> None:
-        """ディレクトリ内のEDINET ZIPファイルをDBにロードする.
-
-        Args:
-            source_dir: ZIPファイルが格納されたディレクトリ
-            max_files: 処理するファイル数の上限（デバッグ用）
-        """
         load_edinet_directory(source_dir, dsn=self.dsn, max_files=max_files)
 
 
@@ -335,13 +80,7 @@ def load_edinet_directory(
     dsn: str | None = None,
     max_files: int | None = None,
 ) -> None:
-    """data/raw/edinet 配下のZIP群をDBにロードする.
-
-    Args:
-        edinet_dir: ZIPファイルが格納されたディレクトリ
-        dsn: PostgreSQL接続文字列（省略時は環境変数から取得）
-        max_files: 処理するファイル数の上限（デバッグ用）
-    """
+    """data/raw/edinet 配下の ZIP 群を DB にロードする."""
     base_path = Path(edinet_dir)
     cfg = load_edinet_config()
 
@@ -356,25 +95,19 @@ def load_edinet_directory(
     with get_connection(dsn) as conn:
         conn.autocommit = False
         with conn.cursor() as cur:
-            # 最初に一括で既存IDを取得（ループ内での毎回クエリを回避）
-            existing_doc_ids = _get_existing_doc_ids(cur)
+            existing_doc_ids = get_existing_doc_ids(cur)
             logger.info(
                 "Found %d existing filings in DB, %d ZIP files to check",
                 len(existing_doc_ids),
                 len(zip_paths),
             )
 
-            # サマリー用カウンター
-            skipped_existing = 0
-            skipped_no_xbrl = 0
-            skipped_no_edinet_code = 0
-            loaded_count = 0
-            error_count = 0
+            skipped_existing = skipped_no_xbrl = skipped_no_edinet_code = 0
+            loaded_count = error_count = 0
 
             for idx, zip_path in enumerate(zip_paths, start=1):
                 edinet_doc_id = zip_path.stem
 
-                # 早期スキップ: メモリ上のsetでO(1)チェック
                 if edinet_doc_id in existing_doc_ids:
                     skipped_existing += 1
                     continue
@@ -382,55 +115,33 @@ def load_edinet_directory(
                 logger.info("[%s/%s] processing %s", idx, len(zip_paths), edinet_doc_id)
 
                 try:
-                    meta = extract_basic_metadata_from_zip(zip_path)
+                    meta = extract_zip_metadata(zip_path)
                     meta["source_zip_path"] = str(zip_path)
                     edinet_code = meta.get("edinet_code") or ""
 
-                    # EDINETコードが取れない書類は会社を特定できないのでスキップ
                     if not edinet_code:
-                        logger.warning("Skipping %s: edinet_code not found in XBRL", edinet_doc_id)
+                        logger.warning("Skipping %s: edinet_code not found", edinet_doc_id)
                         skipped_no_edinet_code += 1
                         continue
 
-                    company_id = _ensure_company(
+                    company_id = ensure_company(
                         cur,
                         edinet_code,
                         meta.get("company_name", ""),
                         meta.get("security_code", ""),
                     )
+                    fiscal_year, fiscal_period = _infer_fiscal_info(
+                        meta.get("period_start") or "",
+                        meta.get("period_end") or "",
+                    )
 
-                    existing_filing_id = _find_existing_filing_id(cur, company_id, edinet_doc_id)
-                    if existing_filing_id is not None:
-                        # 既存filingはスキップ（メタデータ更新のみ）
-                        logger.info("Already loaded, skipping: %s", edinet_doc_id)
-                        fiscal_year, fiscal_period = _infer_fiscal_info(
-                            meta.get("period_start") or "",
-                            meta.get("period_end") or "",
-                        )
-                        cur.execute(
-                            """
-                            UPDATE filings
-                            SET
-                                period_start = COALESCE(%s, period_start),
-                                period_end = COALESCE(%s, period_end),
-                                fiscal_year = COALESCE(%s, fiscal_year),
-                                fiscal_period = COALESCE(%s, fiscal_period),
-                                source_zip_path = COALESCE(%s, source_zip_path)
-                            WHERE id = %s
-                            """,
-                            (
-                                meta.get("period_start") or None,
-                                meta.get("period_end") or None,
-                                fiscal_year,
-                                fiscal_period,
-                                meta.get("source_zip_path") or None,
-                                existing_filing_id,
-                            ),
-                        )
+                    existing_id = find_existing_filing_id(cur, company_id, edinet_doc_id)
+                    if existing_id is not None:
+                        logger.info("Already loaded, updating meta: %s", edinet_doc_id)
+                        update_filing_meta(cur, existing_id, meta, fiscal_year, fiscal_period)
                         conn.commit()
                         continue
 
-                    # ZIPを1回だけ開いてDataFrameを作り、3つのサマリーで共有する
                     facts = xbrl_utils.collect_facts_from_zip(zip_path)
                     df = xbrl_utils.facts_to_dataframe(facts)
                     df = xbrl_utils.add_local_name_column(df)
@@ -439,13 +150,21 @@ def load_edinet_directory(
                     cf = CashFlowSummary.from_dataframe(df)
                     bs = BalanceSheetSummary.from_dataframe(df)
 
-                    filing_id = _insert_filing(cur, company_id, edinet_doc_id, meta)
-                    _insert_statements_and_items(cur, filing_id, cfg, fs, cf, bs)
+                    filing_id = insert_filing(
+                        cur,
+                        company_id,
+                        edinet_doc_id,
+                        meta,
+                        fiscal_year,
+                        fiscal_period,
+                        _infer_document_type(fiscal_period),
+                    )
+                    insert_statements_and_items(cur, filing_id, cfg, fs, cf, bs)
 
                     conn.commit()
                     loaded_count += 1
+
                 except FileNotFoundError:
-                    # ZIP 内に .xbrl がない等
                     skipped_no_xbrl += 1
                     conn.rollback()
                 except Exception:  # noqa: BLE001
@@ -453,7 +172,6 @@ def load_edinet_directory(
                     error_count += 1
                     conn.rollback()
 
-            # サマリー出力（printで確実に表示）
             print(
                 f"=== Load Summary: {loaded_count} loaded, "
                 f"{skipped_existing} skipped (existing), "

@@ -1,36 +1,25 @@
-"""Parser 基底クラス."""
+"""Parser 基底クラスとプロトコル定義."""
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any
+from typing import Protocol, runtime_checkable
+
+import pandas as pd
+
+from src.parser.edinet._base import BaseSummary
 
 
-class BaseParser(ABC):
-    """パーサーの基底クラス.
+@runtime_checkable
+class SummaryParser(Protocol):
+    """XBRL ZIP から決算サマリーを生成するクラスの構造的インターフェース.
 
-    すべてのパーサーはこのクラスを継承する。
+    FinancialSummary / CashFlowSummary / BalanceSheetSummary はこの
+    プロトコルを構造的に満たす（明示的継承不要）。
     """
 
-    @abstractmethod
-    def parse_zip(self, zip_path: Path | str) -> dict[str, Any]:
-        """ZIPファイルをパースしてサマリーを返す.
+    @classmethod
+    def parse_zip(cls, zip_path: Path | str) -> BaseSummary: ...
 
-        Args:
-            zip_path: パース対象のZIPファイルパス
-
-        Returns:
-            パース結果の辞書
-        """
-
-    @abstractmethod
-    def parse_file(self, file_path: Path | str) -> dict[str, Any]:
-        """ファイルをパースしてサマリーを返す.
-
-        Args:
-            file_path: パース対象のファイルパス
-
-        Returns:
-            パース結果の辞書
-        """
+    @classmethod
+    def from_dataframe(cls, df: pd.DataFrame) -> BaseSummary: ...

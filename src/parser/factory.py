@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
+from src.parser._base import SummaryParser
 from src.parser.edinet.xbrl_parser import (
     BalanceSheetSummary,
     CashFlowSummary,
     FinancialSummary,
 )
 
-# 各データソースのサマリークラスを登録
-# EDINETは既にサマリークラスがあるため、それらを直接使用
-_parsers: dict[str, dict[str, type]] = {
+_parsers: dict[str, dict[str, type[SummaryParser]]] = {
     "edinet": {
         "financial": FinancialSummary,
         "cash_flow": CashFlowSummary,
@@ -20,15 +19,15 @@ _parsers: dict[str, dict[str, type]] = {
 }
 
 
-def get_parser(source: str, summary_type: str = "financial") -> type:
-    """データソース名とサマリータイプからパーサークラスを取得.
+def get_parser(source: str, summary_type: str = "financial") -> type[SummaryParser]:
+    """データソース名とサマリータイプから SummaryParser クラスを取得.
 
     Args:
         source: データソース名 ("edinet", "tdnet" など)
         summary_type: サマリータイプ ("financial", "cash_flow", "balance_sheet")
 
     Returns:
-        対応するサマリークラス
+        対応するサマリークラス（SummaryParser プロトコルを満たす）
 
     Raises:
         KeyError: 未対応のデータソースまたはサマリータイプの場合
