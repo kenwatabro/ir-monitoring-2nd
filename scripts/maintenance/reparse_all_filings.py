@@ -18,7 +18,7 @@ import argparse
 import sys
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -30,14 +30,8 @@ except ImportError:
     pass
 
 from src.db import get_connection  # noqa: E402
-from src.ingest.edinet.writer import insert_statements_and_items  # noqa: E402
+from src.ingest.edinet.reparse import reparse_one  # noqa: E402
 from src.parser.configs import load_edinet_config  # noqa: E402
-from src.parser.edinet import utils as xbrl_utils  # noqa: E402
-from src.parser.edinet.xbrl_parser import (  # noqa: E402
-    BalanceSheetSummary,
-    CashFlowSummary,
-    FinancialSummary,
-)
 
 TARGET_SQL = """
 SELECT id, source_zip_path
@@ -45,20 +39,6 @@ FROM filings
 WHERE source_zip_path IS NOT NULL AND source_zip_path <> ''
 ORDER BY id
 """
-
-
-def _reparse_one(cur, filing_id: int, zip_path: Path, cfg: dict) -> dict:
-    facts = xbrl_utils.collect_facts_from_zip(zip_path)
-    df = xbrl_utils.facts_to_dataframe(facts)
-    df = xbrl_utils.add_local_name_column(df)
-
-    fs = FinancialSummary.from_dataframe(df)
-    cf = CashFlowSummary.from_dataframe(df)
-    bs = BalanceSheetSummary.from_dataframe(df)
-
-    cur.execute("DELETE FROM statements WHERE filing_id = %s", (filing_id,))
-    insert_statements_and_items(cur, filing_id, cfg, fs, cf, bs)
-    return fs.to_dict()
 
 
 def main() -> None:
@@ -94,7 +74,7 @@ def main() -> None:
                     continue
 
                 try:
-                    _reparse_one(cur, filing_id, zip_path, cfg)
+                    reparse_one(cur, filing_id, zip_path, cfg)
                     ok += 1
                     if args.execute:
                         conn.commit()

@@ -15,7 +15,7 @@ import argparse
 import sys
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -27,31 +27,8 @@ except ImportError:
     pass
 
 from src.db import get_connection  # noqa: E402
-from src.ingest.edinet.writer import insert_statements_and_items  # noqa: E402
+from src.ingest.edinet.reparse import reparse_one  # noqa: E402
 from src.parser.configs import load_edinet_config  # noqa: E402
-from src.parser.edinet import utils as xbrl_utils  # noqa: E402
-from src.parser.edinet.xbrl_parser import (  # noqa: E402
-    BalanceSheetSummary,
-    CashFlowSummary,
-    FinancialSummary,
-)
-
-
-def _reparse_one(cur, filing_id: int, zip_path: Path, cfg: dict) -> dict:
-    """filing を再パースし statements/statement_items を再生成する."""
-    facts = xbrl_utils.collect_facts_from_zip(zip_path)
-    df = xbrl_utils.facts_to_dataframe(facts)
-    df = xbrl_utils.add_local_name_column(df)
-
-    fs = FinancialSummary.from_dataframe(df)
-    cf = CashFlowSummary.from_dataframe(df)
-    bs = BalanceSheetSummary.from_dataframe(df)
-
-    # 既存の statements を削除（ON DELETE CASCADE で statement_items も消える）
-    cur.execute("DELETE FROM statements WHERE filing_id = %s", (filing_id,))
-
-    insert_statements_and_items(cur, filing_id, cfg, fs, cf, bs)
-    return fs.to_dict()
 
 
 def main() -> None:
@@ -86,7 +63,7 @@ def main() -> None:
                     continue
 
                 try:
-                    new_fs = _reparse_one(cur, filing_id, zip_path, cfg)
+                    new_fs = reparse_one(cur, filing_id, zip_path, cfg)
                     print(f"[{doc_id}] filing_id={filing_id}")
                     for k, v in new_fs.items():
                         print(f"  {k}: {v}")
