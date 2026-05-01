@@ -5,6 +5,10 @@ financial:
       mode: current
       local_names:
         - NetSalesSummaryOfBusinessResults
+        - OperatingRevenue1SummaryOfBusinessResults
+        - OperatingRevenue2SummaryOfBusinessResults
+        - RevenueIFRSSummaryOfBusinessResults
+        - NetSalesAndOperatingRevenuesSummaryOfBusinessResults
     operating_income:
       label_ja: "営業利益"
       mode: current

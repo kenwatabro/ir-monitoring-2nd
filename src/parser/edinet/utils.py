@@ -104,6 +104,12 @@ def pick_current_value(df: pd.DataFrame, local_names: List[str]) -> Optional[flo
     if candidates.empty:
         return None
 
+    # 空値行を除外（XBRLに空タグが残ることがあり、連結優先フィルタが空を拾うと取りこぼす）
+    values = candidates["value"].fillna("").astype(str).str.strip()
+    candidates = candidates[values != ""]
+    if candidates.empty:
+        return None
+
     ctx = candidates["context_ref"].fillna("")
 
     # 1. 連結・当期
@@ -118,6 +124,12 @@ def pick_current_value(df: pd.DataFrame, local_names: List[str]) -> Optional[flo
 
     if preferred.empty:
         return None
+
+    # local_names の並び順を優先度とみなす（yaml で先頭ほど優先）
+    name_order = {name: i for i, name in enumerate(local_names)}
+    preferred = preferred.assign(
+        _prio=preferred["local_name"].map(name_order).fillna(len(local_names))
+    ).sort_values("_prio")
 
     value_str = preferred.iloc[0]["value"]
     try:
@@ -139,6 +151,11 @@ def pick_instant_value(
         return None
 
     candidates = df[df["local_name"].isin(local_names)].copy()
+    if candidates.empty:
+        return None
+
+    values = candidates["value"].fillna("").astype(str).str.strip()
+    candidates = candidates[values != ""]
     if candidates.empty:
         return None
 
