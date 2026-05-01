@@ -86,14 +86,15 @@ def add_local_name_column(df: pd.DataFrame, column: str = "local_name") -> pd.Da
 
 
 def pick_current_value(df: pd.DataFrame, local_names: list[str]) -> float | None:
-    """指定された local_name 候補から当期の値を1つ選んで返す.
+    """指定された local_name 候補から当期の連結通期値を1つ選んで返す.
 
-    優先順位:
-    1. 当期・連結（CurrentYear かつ NonConsolidated を含まない）
-    2. 当期・単体（CurrentYear かつ NonConsolidated を含む）
-    3. その他 CurrentYear コンテキスト
+    context_ref の優先順位（上位ほど優先）:
+    1. CurrentYearDuration 完全一致  ← 連結通期・最も明確
+    2. CurrentYearDuration 系で NonConsolidated・Member を含まない
+    3. CurrentYear 系で NonConsolidated を含まない（Member は許容）
+    4. CurrentYear 系（単体フォールバック）
 
-    日本の上場企業の多くは連結決算を主体とするため、連結を優先する。
+    同優先度内では local_names の先頭ほど優先（yaml 順）。
     """
     if df.empty:
         return None
@@ -102,7 +103,7 @@ def pick_current_value(df: pd.DataFrame, local_names: list[str]) -> float | None
     if candidates.empty:
         return None
 
-    # 空値行を除外（XBRLに空タグが残ることがあり、連結優先フィルタが空を拾うと取りこぼす）
+    # 空値行を除外（空 XBRL タグが優先フィルタを誤動作させる）
     values = candidates["value"].fillna("").astype(str).str.strip()
     candidates = candidates[values != ""]
     if candidates.empty:
@@ -110,14 +111,15 @@ def pick_current_value(df: pd.DataFrame, local_names: list[str]) -> float | None
 
     ctx = candidates["context_ref"].fillna("")
 
-    # 1. 連結・当期
-    consolidated = candidates[ctx.str.contains("CurrentYear") & ~ctx.str.contains("NonConsolidated")]
-    if not consolidated.empty:
-        preferred = consolidated
-    else:
-        # 2. 単体・当期（連結タグがない企業向け）
-        preferred = candidates[ctx.str.contains("CurrentYear")]
+    # 優先度順にフィルタし、最初にヒットした段階で確定
+    p1 = candidates[ctx == "CurrentYearDuration"]
+    p2 = candidates[
+        ctx.str.startswith("CurrentYearDuration") & ~ctx.str.contains("NonConsolidated") & ~ctx.str.contains("Member")
+    ]
+    p3 = candidates[ctx.str.contains("CurrentYear") & ~ctx.str.contains("NonConsolidated")]
+    p4 = candidates[ctx.str.contains("CurrentYear")]
 
+    preferred = next((p for p in (p1, p2, p3, p4) if not p.empty), pd.DataFrame())
     if preferred.empty:
         return None
 

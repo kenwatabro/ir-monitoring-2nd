@@ -25,6 +25,8 @@ financial:
       label_ja: "当期純利益"
       mode: current
       local_names:
+        - ProfitLossAttributableToOwnersOfParentSummaryOfBusinessResults
+        - ProfitLossAttributableToOwnersOfParent
         - NetIncomeLossSummaryOfBusinessResults
     eps:
       label_ja: "EPS（一株当たり当期純利益）"
