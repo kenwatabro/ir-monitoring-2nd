@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from .repositories.company import CompanyRepository
-from .repositories.filing import FilingRepository
+from .repositories.filing import FilingInfo, FilingRepository
 from .repositories.statement import StatementRepository
 
 
@@ -24,6 +24,27 @@ class FinancialTimePoint:
     eps: float | None
 
 
+def _build_time_points(
+    filings: list[FilingInfo],
+    statement_repo: StatementRepository,
+) -> list[FinancialTimePoint]:
+    """filing 一覧から FinancialTimePoint を一括構築する（バッチクエリ）."""
+    summaries = statement_repo.get_financial_summaries_batch([f.id for f in filings])
+    return [
+        FinancialTimePoint(
+            fiscal_year=f.fiscal_year,
+            fiscal_period=f.fiscal_period,
+            period_end=f.period_end,
+            net_sales=summaries[f.id].get("net_sales"),
+            operating_income=summaries[f.id].get("operating_income"),
+            ordinary_income=summaries[f.id].get("ordinary_income"),
+            net_income=summaries[f.id].get("net_income"),
+            eps=summaries[f.id].get("eps"),
+        )
+        for f in filings
+    ]
+
+
 def get_financial_history(
     ticker: str,
     years: int = 5,
@@ -38,44 +59,20 @@ def get_financial_history(
 
     Returns:
         財務時系列データのリスト（period_end 降順）
-
-    Example:
-        >>> history = get_financial_history("7203", years=5)
-        >>> for point in history:
-        ...     print(f"{point.fiscal_year}: 売上 {point.net_sales:,}")
     """
     company_repo = CompanyRepository(dsn)
     filing_repo = FilingRepository(dsn)
     statement_repo = StatementRepository(dsn)
 
-    # 会社を検索
     company = company_repo.find_by_ticker(ticker)
     if not company:
         return []
 
-    # 本決算（FY）の Filing を取得
     filings = filing_repo.list_annual_filings(company.id, years=years)
     if not filings:
         return []
 
-    # 各 Filing から財務データを組み立て
-    result: list[FinancialTimePoint] = []
-    for filing in filings:
-        summary = statement_repo.get_financial_summary(filing.id)
-        result.append(
-            FinancialTimePoint(
-                fiscal_year=filing.fiscal_year,
-                fiscal_period=filing.fiscal_period,
-                period_end=filing.period_end,
-                net_sales=summary.get("net_sales"),
-                operating_income=summary.get("operating_income"),
-                ordinary_income=summary.get("ordinary_income"),
-                net_income=summary.get("net_income"),
-                eps=summary.get("eps"),
-            )
-        )
-
-    return result
+    return _build_time_points(filings, statement_repo)
 
 
 def get_financial_history_by_edinet_code(
@@ -97,34 +94,15 @@ def get_financial_history_by_edinet_code(
     filing_repo = FilingRepository(dsn)
     statement_repo = StatementRepository(dsn)
 
-    # 会社を検索
     company = company_repo.find_by_edinet_code(edinet_code)
     if not company:
         return []
 
-    # 本決算（FY）の Filing を取得
     filings = filing_repo.list_annual_filings(company.id, years=years)
     if not filings:
         return []
 
-    # 各 Filing から財務データを組み立て
-    result: list[FinancialTimePoint] = []
-    for filing in filings:
-        summary = statement_repo.get_financial_summary(filing.id)
-        result.append(
-            FinancialTimePoint(
-                fiscal_year=filing.fiscal_year,
-                fiscal_period=filing.fiscal_period,
-                period_end=filing.period_end,
-                net_sales=summary.get("net_sales"),
-                operating_income=summary.get("operating_income"),
-                ordinary_income=summary.get("ordinary_income"),
-                net_income=summary.get("net_income"),
-                eps=summary.get("eps"),
-            )
-        )
-
-    return result
+    return _build_time_points(filings, statement_repo)
 
 
 def get_all_periods_history(
@@ -156,23 +134,7 @@ def get_all_periods_history(
     if not filings:
         return []
 
-    result: list[FinancialTimePoint] = []
-    for filing in filings:
-        summary = statement_repo.get_financial_summary(filing.id)
-        result.append(
-            FinancialTimePoint(
-                fiscal_year=filing.fiscal_year,
-                fiscal_period=filing.fiscal_period,
-                period_end=filing.period_end,
-                net_sales=summary.get("net_sales"),
-                operating_income=summary.get("operating_income"),
-                ordinary_income=summary.get("ordinary_income"),
-                net_income=summary.get("net_income"),
-                eps=summary.get("eps"),
-            )
-        )
-
-    return result
+    return _build_time_points(filings, statement_repo)
 
 
 __all__ = [

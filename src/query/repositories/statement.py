@@ -134,6 +134,38 @@ class StatementRepository(BaseRepository):
                     return float(row[0]) if row[0] is not None else None
         return None
 
+    def get_financial_summaries_batch(self, filing_ids: list[int]) -> dict[int, dict[str, float | None]]:
+        """複数 filing の PL サマリーを1クエリで一括取得.
+
+        N+1 回避用。filing ごとに get_financial_summary を呼ぶ代わりにこちらを使う。
+
+        Returns:
+            filing_id -> {net_sales, operating_income, ...} のマッピング
+        """
+        _KEYS = ("net_sales", "operating_income", "ordinary_income", "net_income", "eps")
+        result: dict[int, dict[str, float | None]] = {fid: {k: None for k in _KEYS} for fid in filing_ids}
+        if not filing_ids:
+            return result
+
+        with self._get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT s.filing_id, si.item_key, si.value_numeric
+                    FROM statement_items si
+                    JOIN statements s ON s.id = si.statement_id
+                    WHERE s.filing_id = ANY(%s)
+                      AND s.statement_type = 'PL'
+                      AND si.item_key = ANY(%s)
+                    """,
+                    (filing_ids, list(_KEYS)),
+                )
+                for filing_id, item_key, value in cur.fetchall():
+                    if filing_id in result:
+                        result[filing_id][item_key] = float(value) if value is not None else None
+
+        return result
+
     def get_financial_summary(self, filing_id: int) -> dict[str, float | None]:
         """Filing IDから主要財務指標を辞書で取得.
 
