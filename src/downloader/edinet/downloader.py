@@ -9,11 +9,11 @@ import logging
 import os
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import requests
 
-from ._base import BaseDownloader
+from src.downloader._base import BaseDownloader
 
 logger = logging.getLogger(__name__)
 DEFAULT_BASE_URL = "https://api.edinet-fsa.go.jp/api/v2"
@@ -30,10 +30,10 @@ class EdinetDownloader(BaseDownloader):
         self.api_key = os.getenv("EDINET_API_KEY")
         self.session = requests.Session()
 
-    def download(self, output_dir: Path | str) -> List[Dict[str, Any]]:
+    def download(self, output_dir: Path | str) -> list[dict[str, Any]]:
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
-        downloaded_docs: List[Dict[str, Any]] = []
+        downloaded_docs: list[dict[str, Any]] = []
         current = self.start_date
         while current <= self.end_date:
             data = self._fetch_metadata(current)
@@ -47,7 +47,7 @@ class EdinetDownloader(BaseDownloader):
                         downloaded_docs.append(enriched_doc)
             current += timedelta(days=1)
         return downloaded_docs
-    
+
     def _fetch_metadata(self, current: date) -> dict:
         params = {
             "date": current.strftime("%Y-%m-%d"),
@@ -94,6 +94,3 @@ class EdinetDownloader(BaseDownloader):
                     fh.write(chunk)
         logger.info("Downloaded: %s", doc_id)
         return dest_path
-
-
-           

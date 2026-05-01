@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any
 
 from psycopg2.extras import execute_values
 
 from src.db import get_connection
 
 
-def _parse_date(value: Any) -> Optional[str]:
+def _parse_date(value: Any) -> str | None:
     """EDINETの日付値を 'YYYY-MM-DD' 文字列として返す（不正値は None）。"""
     if value in (None, ""):
         return None
@@ -22,12 +23,12 @@ def _parse_date(value: Any) -> Optional[str]:
     return candidate
 
 
-def _build_rows(docs: Iterable[Dict[str, Any]]) -> List[Tuple]:
+def _build_rows(docs: Iterable[dict[str, Any]]) -> list[tuple]:
     """edinet_documents テーブル向けの行タプルを生成する.
 
     同じ doc_id が複数回出現した場合は後のものを優先する（重複排除）。
     """
-    rows_by_doc_id: Dict[str, Tuple] = {}
+    rows_by_doc_id: dict[str, tuple] = {}
     for doc in docs:
         doc_id = doc.get("docID")
         if not doc_id:
@@ -52,8 +53,8 @@ def _build_rows(docs: Iterable[Dict[str, Any]]) -> List[Tuple]:
 
 
 def upsert_edinet_documents(
-    docs: Iterable[Dict[str, Any]],
-    dsn: Optional[str] = None,
+    docs: Iterable[dict[str, Any]],
+    dsn: str | None = None,
 ) -> None:
     """EDINETメタデータ(docs)を edinet_documents に upsert する."""
     rows = _build_rows(docs)
@@ -88,5 +89,3 @@ def upsert_edinet_documents(
                 rows,
             )
         conn.commit()
-
-

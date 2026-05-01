@@ -7,11 +7,9 @@
 - `xbrl_parser.py` : 各種サマリクラスと、XBRL→サマリへの変換ロジック
 """
 
-from ._base import XbrlFact, BaseSummary
+from ._base import BaseSummary, XbrlFact
 
 __all__ = [
     "XbrlFact",
     "BaseSummary",
 ]
-
-

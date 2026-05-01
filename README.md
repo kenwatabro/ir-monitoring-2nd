@@ -264,12 +264,245 @@ docker rm ir-monitoring-postgres
 docker rm -v ir-monitoring-postgres
 ```
 
+## CLI コマンド一覧
+
+このプロジェクトでは、財務データの取得・分析・レポート生成のための各種CLIコマンドを提供しています。
+
+### 前提条件
+
+```bash
+# 仮想環境の有効化
+source venv/bin/activate  # Linux/macOS
+venv\Scripts\activate      # Windows
+
+# 環境変数の設定
+export PGURL="postgresql://ir_user:ir_password@localhost:5432/ir_monitoring"
+```
+
+---
+
+### 1. データダウンロード（EDINET API）
+
+EDINETから指定期間の財務書類をダウンロードします。
+
+```bash
+python -m src.download <開始日> <終了日> [オプション]
+```
+
+**引数:**
+| 引数 | 説明 | 例 |
+|------|------|-----|
+| `開始日` | ダウンロード開始日（YYYY-MM-DD） | `2024-12-01` |
+| `終了日` | ダウンロード終了日（YYYY-MM-DD） | `2024-12-31` |
+
+**オプション:**
+| オプション | 説明 | デフォルト |
+|------------|------|-----------|
+| `--output-dir` | 保存先ディレクトリ | `data/raw` |
+| `--database-url` | メタデータ保存先DB URL | なし |
+
+**使用例:**
+
+```bash
+# 2024年12月のデータをダウンロード（DBへのメタデータ保存なし）
+python -m src.download 2024-12-01 2024-12-31
+
+# ダウンロードしてメタデータをDBに保存
+python -m src.download 2024-12-01 2024-12-31 \
+  --database-url postgresql://ir_user:ir_password@localhost:5432/ir_monitoring
+
+# 保存先を指定
+python -m src.download 2024-12-01 2024-12-31 --output-dir data/raw/edinet
+```
+
+---
+
+### 2. データベースへのロード
+
+ダウンロードしたXBRLファイルを解析してデータベースに格納します。
+
+```bash
+python scripts/load_edinet_to_db.py [オプション]
+```
+
+**オプション:**
+| オプション | 説明 | デフォルト |
+|------------|------|-----------|
+| `--max-files` | 処理するファイル数の上限 | 全件 |
+
+**使用例:**
+
+```bash
+# 全ファイルをロード
+python scripts/load_edinet_to_db.py
+
+# 最初の20件のみロード（テスト用）
+python scripts/load_edinet_to_db.py --max-files 20
+```
+
+---
+
+### 3. 銘柄レポート生成
+
+指定銘柄の財務推移レポートを生成します。
+
+```bash
+python scripts/show_company_report.py [銘柄コード] [オプション]
+```
+
+**引数:**
+| 引数 | 説明 | 例 |
+|------|------|-----|
+| `銘柄コード` | 証券コード（4桁） | `7203` |
+
+**オプション:**
+| オプション | 説明 | デフォルト |
+|------------|------|-----------|
+| `--edinet` | EDINETコードで指定 | - |
+| `--format` | 出力形式（console/csv/markdown） | `console` |
+| `--years` | 取得する年数 | `5` |
+
+**使用例:**
+
+```bash
+# 証券コードで検索してコンソール出力
+python scripts/show_company_report.py 7203
+
+# EDINETコードで検索
+python scripts/show_company_report.py --edinet E02275-000
+
+# Markdown形式で出力
+python scripts/show_company_report.py 7203 --format markdown
+
+# CSV形式で10年分を出力
+python scripts/show_company_report.py 7203 --format csv --years 10
+
+# 古いデータがある場合は年数を増やす
+python scripts/show_company_report.py --edinet E02275-000 --years 10
+```
+
+**出力例（console）:**
+
+```
+=== トヨタ自動車株式会社 財務推移 ===
+
+決算期                    売上高            営業利益            経常利益             純利益        EPS
+-------------------------------------------------------------------------------------
+2020 FY          29,929,992         2,442,869         2,792,942         2,076,183     146.98
+2021 FY          27,214,594         1,320,888         2,324,763         2,282,378     161.59
+2022 FY          31,379,507         2,995,697         3,990,532         2,850,110     202.22
+2023 FY          37,154,298         2,725,025         3,668,733         2,451,318     178.42
+2024 FY          45,095,325         5,352,934         6,070,093         4,944,933     365.41
+
+※ 金額は百万円単位
+```
+
+---
+
+### 4. スクリーナー実行
+
+設定した条件で銘柄をスクリーニングします。
+
+```bash
+python scripts/run_screener.py [オプション]
+```
+
+**オプション:**
+| オプション | 説明 | デフォルト |
+|------------|------|-----------|
+| `--list` | 利用可能なスクリーナーを表示 | - |
+| `--name` | 実行するスクリーナー名 | - |
+| `--years` | 分析対象年数 | `5` |
+| `--min-growth` | 最低成長率（eps_growth, revenue_growth用） | スクリーナー依存 |
+| `--min-margin` | 最低利益率（profit_margin用） | `0.10` |
+| `--output` | 結果出力ファイル（JSON） | なし |
+
+**利用可能なスクリーナー:**
+| 名前 | 説明 |
+|------|------|
+| `eps_growth` | 過去3年のEPS成長率が15%以上 |
+| `revenue_growth` | 過去3年の売上高成長率が10%以上 |
+| `profit_margin` | 営業利益率が10%以上 |
+
+**使用例:**
+
+```bash
+# 利用可能なスクリーナーを表示
+python scripts/run_screener.py --list
+
+# EPS成長スクリーナーを実行
+python scripts/run_screener.py --name eps_growth
+
+# 売上成長率20%以上でスクリーニング
+python scripts/run_screener.py --name revenue_growth --min-growth 0.20
+
+# 営業利益率15%以上でスクリーニング
+python scripts/run_screener.py --name profit_margin --min-margin 0.15
+
+# 結果をJSONファイルに出力
+python scripts/run_screener.py --name eps_growth --output results.json
+```
+
+**出力例:**
+
+```
+利用可能なスクリーナー:
+  eps_growth: 過去3年のEPS成長率が15%以上
+  profit_margin: 営業利益率が10%以上
+  revenue_growth: 過去3年の売上高成長率が10%以上
+```
+
+---
+
+### クイックスタート例
+
+```bash
+# 1. 仮想環境の有効化と環境変数設定
+source venv/bin/activate
+export PGURL="postgresql://ir_user:ir_password@localhost:5432/ir_monitoring"
+
+# 2. 直近1週間のデータをダウンロード
+python -m src.download 2024-12-20 2024-12-27 --output-dir data/raw/edinet
+
+# 3. データベースにロード（最初は20件でテスト）
+python scripts/load_edinet_to_db.py --max-files 20
+
+# 4. 銘柄のレポートを確認
+python scripts/show_company_report.py --edinet E02275-000 --years 10
+
+# 5. スクリーナーで銘柄抽出
+python scripts/run_screener.py --name profit_margin --min-margin 0.15
+```
+
+---
+
 ## プロジェクト構造
 
-- `src/` - Pythonソースコード
-- `ddl/` - データベーススキーマ定義（DDL）
-- `scripts/` - 自動化スクリプト
-- `data/raw/` - ダウンロードした生データ（.gitignoreに含まれる）
+```
+ir-monitoring-2nd/
+├── src/
+│   ├── downloader/        # データダウンロード（EDINET等）
+│   │   ├── edinet/        # EDINETダウンローダー
+│   │   └── factory.py     # ダウンローダーファクトリ
+│   ├── parser/            # XBRLパーサー
+│   │   └── factory.py     # パーサーファクトリ
+│   ├── ingest/            # データベース格納
+│   │   ├── edinet/        # EDINETローダー
+│   │   └── factory.py     # ローダーファクトリ
+│   ├── query/             # データ取得・リポジトリ
+│   │   ├── repositories/  # Company/Filing/Statement リポジトリ
+│   │   └── timeseries.py  # 時系列データ取得
+│   ├── reports/           # レポート生成
+│   │   ├── formatters/    # Console/CSV/Markdown フォーマッター
+│   │   └── generators/    # レポートジェネレーター
+│   └── analytics/         # 分析・スクリーニング
+│       ├── registry.py    # スクリーナーレジストリ
+│       └── screeners/     # 各種スクリーナー
+├── scripts/               # CLIスクリプト
+├── ddl/                   # データベーススキーマ定義
+├── data/raw/              # ダウンロードした生データ
+└── tests/                 # テストコード
+```
 
-詳細は`AGENTS.md`を参照してください。
+詳細は`AGENTS.md`および`docs/architecture.md`を参照してください。
 

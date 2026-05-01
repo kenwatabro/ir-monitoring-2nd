@@ -24,8 +24,6 @@
 .DS_Store
 
 data/
-docs/
-tests/
 venv/
 
 *.ipynb

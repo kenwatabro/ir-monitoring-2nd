@@ -8,14 +8,12 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from .downloader.edinet_downloader import EdinetDownloader
-from .ingest.edinet_metadata import upsert_edinet_documents
+from .downloader.edinet import EdinetDownloader
+from .ingest.edinet import upsert_edinet_documents
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Download EDINET filings within a date range."
-    )
+    parser = argparse.ArgumentParser(description="Download EDINET filings within a date range.")
     parser.add_argument(
         "start_date",
         type=date.fromisoformat,
@@ -56,6 +54,7 @@ def main(argv: list[str] | None = None) -> int:
         upsert_edinet_documents(docs, dsn=args.database_url)
 
     print(f"Downloaded {len(docs)} document(s)")
+
 
 if __name__ == "__main__":
     main()

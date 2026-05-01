@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Iterable, Iterator, List, Optional
 import xml.etree.ElementTree as ET
 import zipfile
+from collections.abc import Iterable, Iterator
+from pathlib import Path
 
 import pandas as pd
 
@@ -47,9 +47,9 @@ def iter_facts_from_zip(zip_path: Path | str) -> Iterator[XbrlFact]:
         )
 
 
-def collect_facts_from_zip(zip_path: Path | str, limit: Optional[int] = None) -> List[XbrlFact]:
+def collect_facts_from_zip(zip_path: Path | str, limit: int | None = None) -> list[XbrlFact]:
     """ZIPから fact を全件、または limit 件だけリストに詰めて返す。"""
-    facts: List[XbrlFact] = []
+    facts: list[XbrlFact] = []
     for i, fact in enumerate(iter_facts_from_zip(zip_path)):
         facts.append(fact)
         if limit is not None and i + 1 >= limit:
@@ -85,15 +85,17 @@ def add_local_name_column(df: pd.DataFrame, column: str = "local_name") -> pd.Da
     return df
 
 
-def is_current_nonconsolidated(context_ref: Optional[str]) -> bool:
-    """当期・単体（NonConsolidated）を表す contextRef かどうかの簡易判定。"""
-    if context_ref is None:
-        return False
-    return context_ref.startswith("CurrentYear") and "NonConsolidatedMember" in context_ref
+def pick_current_value(df: pd.DataFrame, local_names: list[str]) -> float | None:
+    """指定された local_name 候補から当期の連結通期値を1つ選んで返す.
 
+    context_ref の優先順位（上位ほど優先）:
+    1. CurrentYearDuration 完全一致  ← 連結通期・最も明確
+    2. CurrentYearDuration 系で NonConsolidated・Member を含まない
+    3. CurrentYear 系で NonConsolidated を含まない（Member は許容）
+    4. CurrentYear 系（単体フォールバック）
 
-def pick_current_value(df: pd.DataFrame, local_names: List[str]) -> Optional[float]:
-    """指定された local_name 候補から、当期・単体の値を1つ選んで返す."""
+    同優先度内では local_names の先頭ほど優先（yaml 順）。
+    """
     if df.empty:
         return None
 
@@ -101,11 +103,31 @@ def pick_current_value(df: pd.DataFrame, local_names: List[str]) -> Optional[flo
     if candidates.empty:
         return None
 
-    preferred = candidates[candidates["context_ref"].map(is_current_nonconsolidated)]
-    if preferred.empty:
-        preferred = candidates[candidates["context_ref"].fillna("").str.contains("CurrentYear")]
+    # 空値行を除外（空 XBRL タグが優先フィルタを誤動作させる）
+    values = candidates["value"].fillna("").astype(str).str.strip()
+    candidates = candidates[values != ""]
+    if candidates.empty:
+        return None
+
+    ctx = candidates["context_ref"].fillna("")
+
+    # 優先度順にフィルタし、最初にヒットした段階で確定
+    p1 = candidates[ctx == "CurrentYearDuration"]
+    p2 = candidates[
+        ctx.str.startswith("CurrentYearDuration") & ~ctx.str.contains("NonConsolidated") & ~ctx.str.contains("Member")
+    ]
+    p3 = candidates[ctx.str.contains("CurrentYear") & ~ctx.str.contains("NonConsolidated")]
+    p4 = candidates[ctx.str.contains("CurrentYear")]
+
+    preferred = next((p for p in (p1, p2, p3, p4) if not p.empty), pd.DataFrame())
     if preferred.empty:
         return None
+
+    # local_names の並び順を優先度とみなす（yaml で先頭ほど優先）
+    name_order = {name: i for i, name in enumerate(local_names)}
+    preferred = preferred.assign(_prio=preferred["local_name"].map(name_order).fillna(len(local_names))).sort_values(
+        "_prio"
+    )
 
     value_str = preferred.iloc[0]["value"]
     try:
@@ -114,7 +136,7 @@ def pick_current_value(df: pd.DataFrame, local_names: List[str]) -> Optional[flo
         return None
 
 
-def pick_instant_value(df: pd.DataFrame, local_names: List[str], context_keyword: str) -> Optional[float]:
+def pick_instant_value(df: pd.DataFrame, local_names: list[str], context_keyword: str) -> float | None:
     """指定された local_name と context キーワードから、期首/期末などの値を1つ選んで返す。
 
     例:
@@ -125,6 +147,11 @@ def pick_instant_value(df: pd.DataFrame, local_names: List[str], context_keyword
         return None
 
     candidates = df[df["local_name"].isin(local_names)].copy()
+    if candidates.empty:
+        return None
+
+    values = candidates["value"].fillna("").astype(str).str.strip()
+    candidates = candidates[values != ""]
     if candidates.empty:
         return None
 
@@ -139,15 +166,99 @@ def pick_instant_value(df: pd.DataFrame, local_names: List[str], context_keyword
         return None
 
 
+def extract_zip_metadata(zip_path: Path | str) -> dict[str, str]:
+    """XBRL ZIP から会社コード・社名・期間などのメタ情報を抽出する.
+
+    Returns:
+        edinet_code, company_name, security_code, period_start, period_end を含む dict。
+        取得できなかったキーは空文字列。
+    """
+    meta: dict[str, str] = {
+        "edinet_code": "",
+        "company_name": "",
+        "security_code": "",
+        "period_start": "",
+        "period_end": "",
+    }
+
+    try:
+        with zipfile.ZipFile(zip_path) as zf:
+            xbrl_name = find_instance_xbrl_name(zf)
+            with zf.open(xbrl_name) as fh:
+                tree = ET.parse(fh)
+    except Exception:  # noqa: BLE001
+        return meta
+
+    root = tree.getroot()
+    contexts: list[ET.Element] = [elem for elem in root if elem.tag.lower().endswith("context")]
+
+    chosen_ctx: ET.Element | None = None
+    for ctx in contexts:
+        if "CurrentYear" in ctx.attrib.get("id", "") and ctx.find(".//{*}startDate") is not None:
+            chosen_ctx = ctx
+            break
+    if chosen_ctx is None and contexts:
+        chosen_ctx = contexts[0]
+
+    if chosen_ctx is not None:
+        ident = chosen_ctx.find(".//{*}identifier")
+        if ident is not None and ident.text:
+            meta["edinet_code"] = ident.text.strip()
+
+        period = chosen_ctx.find(".//{*}period")
+        if period is not None:
+            start = period.find(".//{*}startDate")
+            end = period.find(".//{*}endDate")
+            instant = period.find(".//{*}instant")
+            if start is not None and start.text:
+                meta["period_start"] = start.text.strip()
+            if end is not None and end.text:
+                meta["period_end"] = end.text.strip()
+            elif instant is not None and instant.text:
+                meta["period_end"] = instant.text.strip()
+
+    def _local(tag: str) -> str:
+        return tag.split("}", 1)[1] if "}" in tag else tag
+
+    for elem in root.iter():
+        lname = _local(elem.tag)
+        if not elem.text:
+            continue
+        text = elem.text.strip()
+
+        if not meta["company_name"] and lname in (
+            "CompanyNameCoverPage",
+            "CompanyName",
+            "CompanyNameDEI",
+            "FundNameInJapaneseDEI",
+            "FundNameCoverPage",
+        ):
+            meta["company_name"] = text
+
+        if not meta["security_code"] and lname in (
+            "SecurityCode",
+            "SecurityCodeCoverPage",
+            "SecurityCodeDEI",
+        ):
+            code = text.strip()
+            # EDINETは5桁（末尾0付き）で格納する場合がある → 4桁に正規化
+            if len(code) == 5 and code.endswith("0"):
+                code = code[:4]
+            meta["security_code"] = code
+
+        if meta["company_name"] and meta["security_code"]:
+            break
+
+    return meta
+
+
 __all__ = [
     "find_instance_xbrl_name",
     "iter_facts_from_zip",
     "collect_facts_from_zip",
     "facts_to_dataframe",
     "add_local_name_column",
-    "is_current_nonconsolidated",
     "pick_current_value",
     "pick_instant_value",
+    "extract_zip_metadata",
 ]
-
-

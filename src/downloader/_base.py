@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import List
-from abc import ABC, abstractmethod
 
 
 class BaseDownloader(ABC):
@@ -19,7 +18,7 @@ class BaseDownloader(ABC):
         self.end_date = end_date
 
     @abstractmethod
-    def download(self, output_dir: Path) -> List[dict]:
+    def download(self, output_dir: Path) -> list[dict]:
         """Fetch documents for the configured date range into output_dir."""
 
 
@@ -28,8 +27,8 @@ class DownloadSummary:
     """Result of a download run."""
 
     requested_days: int
-    downloaded_files: List[Path] = field(default_factory=list)
-    documents: List[dict] = field(default_factory=list)  # doc metadata + path
+    downloaded_files: list[Path] = field(default_factory=list)
+    documents: list[dict] = field(default_factory=list)  # doc metadata + path
     skipped_days: int = 0
     failed_days: int = 0
 
