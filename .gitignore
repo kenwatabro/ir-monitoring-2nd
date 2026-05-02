@@ -25,6 +25,7 @@
 
 data/
 venv/
+logs/
 
 *.ipynb
 *.ipynb_checkpoints
