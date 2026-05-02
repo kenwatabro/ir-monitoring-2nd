@@ -31,19 +31,26 @@ from src.db import get_connection  # noqa: E402
 
 # namespace URI のキーワードで分類
 _TAXONOMY_LABELS = [
-    ("jpifrs",   "IFRS（EDINET jpifrs）"),
-    ("ifrs-full","IFRS（ifrs-full）"),
-    ("jpbpfrs",  "銀行業（jpbpfrs）"),
-    ("jpins",    "保険業（jpins）"),
-    ("jppfrs",   "非営利（jppfrs）"),
-    ("jppfs",    "J-GAAP（jppfs）"),
-    ("jpfrs",    "J-GAAP旧（jpfrs）"),
+    ("jpifrs", "IFRS（EDINET jpifrs）"),
+    ("ifrs-full", "IFRS（ifrs-full）"),
+    ("jpbpfrs", "銀行業（jpbpfrs）"),
+    ("jpins", "保険業（jpins）"),
+    ("jppfrs", "非営利（jppfrs）"),
+    ("jppfs", "J-GAAP（jppfs）"),
+    ("jpfrs", "J-GAAP旧（jpfrs）"),
 ]
 
 # 利益系・売上系に関連しそうなキーワード
 _INCOME_KEYWORDS = (
-    "Income", "Profit", "Loss", "Sales", "Revenue", "Earnings",
-    "NetIncome", "OrdinaryIncome", "OperatingIncome",
+    "Income",
+    "Profit",
+    "Loss",
+    "Sales",
+    "Revenue",
+    "Earnings",
+    "NetIncome",
+    "OrdinaryIncome",
+    "OperatingIncome",
 )
 
 
@@ -61,9 +68,7 @@ def _extract_namespaces_and_tags(zip_path: str) -> tuple[set[str], list[str]]:
     local_names: list[str] = []
     try:
         with zipfile.ZipFile(zip_path) as zf:
-            xbrl_file = next(
-                (n for n in zf.namelist() if n.lower().endswith(".xbrl")), None
-            )
+            xbrl_file = next((n for n in zf.namelist() if n.lower().endswith(".xbrl")), None)
             if not xbrl_file:
                 return namespaces, local_names
             with zf.open(xbrl_file) as fh:
@@ -81,6 +86,7 @@ def _extract_namespaces_and_tags(zip_path: str) -> tuple[set[str], list[str]]:
 
 # ── Phase 1: DB分析 ──────────────────────────────────────────────────────────
 
+
 def _section(title: str) -> None:
     print()
     print("=" * 70)
@@ -90,7 +96,6 @@ def _section(title: str) -> None:
 
 def run_phase1(conn) -> None:
     with conn.cursor() as cur:
-
         # 1. 欠損の重なり（ordinary_income が欠損している filing で他項目も欠損か）
         _section("1. 欠損項目の重なり（FY / ordinary_income 欠損 8,850件を基準）")
         missing_items = ["net_sales", "operating_income", "ordinary_income", "net_income", "eps"]
@@ -112,7 +117,8 @@ def run_phase1(conn) -> None:
         for item in missing_items:
             if item == "ordinary_income":
                 continue
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT f.id
                 FROM filings f
                 WHERE f.fiscal_period = 'FY'
@@ -123,7 +129,9 @@ def run_phase1(conn) -> None:
                       AND si.item_key = %s
                       AND si.value_numeric IS NOT NULL
                   )
-            """, (item,))
+            """,
+                (item,),
+            )
             missing_ids = {row[0] for row in cur.fetchall()}
             overlap = len(missing_oi_ids & missing_ids)
             only_oi = len(missing_oi_ids - missing_ids)
@@ -153,7 +161,7 @@ def run_phase1(conn) -> None:
         """)
         rows = cur.fetchall()
         print(f"  {'年':>6}  {'total':>7}  {'欠損':>7}  {'欠損率':>7}")
-        print(f"  {'─'*6}  {'─'*7}  {'─'*7}  {'─'*7}")
+        print(f"  {'─' * 6}  {'─' * 7}  {'─' * 7}  {'─' * 7}")
         for yr, total, missing in rows:
             pct = missing / total * 100 if total else 0
             print(f"  {yr:>6}  {total:>7,}  {missing:>7,}  {pct:>6.1f}%")
@@ -214,6 +222,7 @@ def run_phase1(conn) -> None:
 
 # ── Phase 2: ZIP タグスキャン ─────────────────────────────────────────────────
 
+
 def run_phase2(zip_samples: list[tuple], sample_n: int = 50) -> None:
     _section(f"5. ZIP タグスキャン（サンプル {sample_n} 件）")
 
@@ -255,6 +264,7 @@ def run_phase2(zip_samples: list[tuple], sample_n: int = 50) -> None:
 
     # 現在のYAML に存在しないタグを強調
     from src.parser.configs import load_edinet_config
+
     cfg = load_edinet_config()
     existing_tags: set[str] = set()
     for section in cfg.values():
@@ -262,7 +272,7 @@ def run_phase2(zip_samples: list[tuple], sample_n: int = 50) -> None:
             existing_tags.update(field.get("local_names", []))
 
     new_income = [(t, c) for t, c in income_tag_counter.most_common(30) if t not in existing_tags]
-    new_sales  = [(t, c) for t, c in sales_tag_counter.most_common(20)  if t not in existing_tags]
+    new_sales = [(t, c) for t, c in sales_tag_counter.most_common(20) if t not in existing_tags]
 
     if new_income:
         print("\n  *** YAML未定義の利益系タグ（要検討）:")
@@ -277,14 +287,19 @@ def run_phase2(zip_samples: list[tuple], sample_n: int = 50) -> None:
 
 # ── main ──────────────────────────────────────────────────────────────────────
 
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="欠損原因の特定")
     parser.add_argument(
-        "--phase", type=int, default=1,
+        "--phase",
+        type=int,
+        default=1,
         help="1=DBのみ, 2=DB+ZIPスキャン（デフォルト: 1）",
     )
     parser.add_argument(
-        "--sample", type=int, default=50,
+        "--sample",
+        type=int,
+        default=50,
         help="Phase 2 でスキャンするサンプル数（デフォルト: 50）",
     )
     args = parser.parse_args()

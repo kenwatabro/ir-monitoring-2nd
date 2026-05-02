@@ -9,6 +9,9 @@ financial:
         - OperatingRevenue2SummaryOfBusinessResults
         - RevenueIFRSSummaryOfBusinessResults
         - NetSalesAndOperatingRevenuesSummaryOfBusinessResults
+        - NetSales
+        - OperatingRevenue1
+        - OperatingRevenue2
     operating_income:
       label_ja: "営業利益"
       mode: current
@@ -21,6 +24,7 @@ financial:
       mode: current
       local_names:
         - OrdinaryIncomeLossSummaryOfBusinessResults
+        - OrdinaryIncome
     net_income:
       label_ja: "当期純利益"
       mode: current
@@ -28,6 +32,8 @@ financial:
         - ProfitLossAttributableToOwnersOfParentSummaryOfBusinessResults
         - ProfitLossAttributableToOwnersOfParent
         - NetIncomeLossSummaryOfBusinessResults
+        - ProfitLoss
+        - NetIncomeLoss
     eps:
       label_ja: "EPS（一株当たり当期純利益）"
       mode: current
