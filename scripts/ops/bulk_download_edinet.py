@@ -8,16 +8,16 @@
 
 Usage:
     # 2015年から今日まで全件取得（バックグラウンド）
-    python scripts/bulk_download_edinet.py --start 2015-01-01 &
+    python scripts/ops/bulk_download_edinet.py --start 2015-01-01 &
 
     # 特定期間
-    python scripts/bulk_download_edinet.py --start 2020-04-01 --end 2021-03-31
+    python scripts/ops/bulk_download_edinet.py --start 2020-04-01 --end 2021-03-31
 
     # ダウンロードのみ（DBロードなし）
-    python scripts/bulk_download_edinet.py --start 2020-01-01 --download-only
+    python scripts/ops/bulk_download_edinet.py --start 2020-01-01 --download-only
 
     # DBロードのみ（既にZIPがある場合）
-    python scripts/bulk_download_edinet.py --load-only
+    python scripts/ops/bulk_download_edinet.py --load-only
 """
 
 from __future__ import annotations

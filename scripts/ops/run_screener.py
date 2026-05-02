@@ -2,10 +2,10 @@
 """スクリーナーを実行するCLIスクリプト.
 
 Usage:
-    python scripts/run_screener.py --list
-    python scripts/run_screener.py --name eps_growth
-    python scripts/run_screener.py --name revenue_growth --years 5
-    python scripts/run_screener.py --name profit_margin --min-margin 0.15
+    python scripts/ops/run_screener.py --list
+    python scripts/ops/run_screener.py --name eps_growth --ticker 7203
+    python scripts/ops/run_screener.py --name revenue_growth --ticker 7203 --years 5
+    python scripts/ops/run_screener.py --name profit_margin --ticker 7203 --min-margin 0.15
 """
 
 from __future__ import annotations
@@ -83,10 +83,10 @@ def main(argv: list[str] | None = None) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 例:
-  python scripts/run_screener.py --list
-  python scripts/run_screener.py --name eps_growth --ticker 7203
-  python scripts/run_screener.py --name revenue_growth --ticker 7203 --years 5
-  python scripts/run_screener.py --name profit_margin --ticker 7203 --min-margin 0.15
+  python scripts/ops/run_screener.py --list
+  python scripts/ops/run_screener.py --name eps_growth --ticker 7203
+  python scripts/ops/run_screener.py --name revenue_growth --ticker 7203 --years 5
+  python scripts/ops/run_screener.py --name profit_margin --ticker 7203 --min-margin 0.15
         """,
     )
     parser.add_argument(

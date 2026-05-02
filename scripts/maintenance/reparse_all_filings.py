@@ -7,9 +7,9 @@ ZIP が存在する全 filing を対象に、statements を削除して再生成
 デフォルトはドライラン。--execute で実行。
 
 Usage:
-    python scripts/reparse_all_filings.py               # ドライラン（件数確認）
-    python scripts/reparse_all_filings.py --limit 20    # 20件だけ試す
-    python scripts/reparse_all_filings.py --execute     # 全件実行
+    python scripts/maintenance/reparse_all_filings.py               # ドライラン（件数確認）
+    python scripts/maintenance/reparse_all_filings.py --limit 20    # 20件だけ試す
+    python scripts/maintenance/reparse_all_filings.py --execute     # 全件実行
 """
 
 from __future__ import annotations

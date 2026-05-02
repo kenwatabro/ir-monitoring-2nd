@@ -4,9 +4,9 @@
 statements / statement_items を一旦削除して再生成する。filings 行は更新のみ。
 
 Usage:
-    python scripts/reparse_filing.py --doc-id S100W57J
-    python scripts/reparse_filing.py --doc-id S100W57J S100XXXX  # 複数指定
-    python scripts/reparse_filing.py --doc-id S100W57J --dry-run  # ロールバック確認
+    python scripts/maintenance/reparse_filing.py --doc-id S100W57J
+    python scripts/maintenance/reparse_filing.py --doc-id S100W57J S100XXXX  # 複数指定
+    python scripts/maintenance/reparse_filing.py --doc-id S100W57J --dry-run  # ロールバック確認
 """
 
 from __future__ import annotations

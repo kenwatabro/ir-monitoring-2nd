@@ -11,8 +11,8 @@ EDINET doc_type_code:
 デフォルトはドライラン。--execute で実行。
 
 Usage:
-    python scripts/dedup_filings.py            # ドライラン
-    python scripts/dedup_filings.py --execute  # 実行
+    python scripts/maintenance/oneoff/dedup_filings.py            # ドライラン
+    python scripts/maintenance/oneoff/dedup_filings.py --execute  # 実行
 """
 
 from __future__ import annotations

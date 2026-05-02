@@ -6,7 +6,7 @@ SecurityCodeDEI タグへの対応前にロードされた会社は ticker が N
 ticker を埋める。
 
 Usage:
-    python scripts/backfill_tickers.py \
+    python scripts/maintenance/backfill_tickers.py \
         --edinet-dir data/raw/edinet \
         --dsn "postgresql://ir_user:ir_password@192.168.0.100:5433/ir_monitoring"
 """
@@ -25,7 +25,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from dotenv import load_dotenv
 
 from src.db import get_connection
-from src.ingest.edinet.loader import extract_basic_metadata_from_zip
+from src.parser.edinet.utils import extract_zip_metadata
 
 load_dotenv()
 
@@ -115,7 +115,7 @@ def main(argv: list[str] | None = None) -> int:
             not_found += 1
             continue
 
-        meta = extract_basic_metadata_from_zip(zip_path)
+        meta = extract_zip_metadata(zip_path)
         ticker = meta.get("security_code", "")
         name_jp = meta.get("company_name", "")
 

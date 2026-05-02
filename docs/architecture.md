@@ -621,23 +621,23 @@ def get_financial_history(
 - [x] `src/reports/formatters/csv.py` - CsvFormatter 実装
 - [x] `src/reports/formatters/markdown.py` - MarkdownFormatter 実装
 - [x] `src/reports/generators/company.py` - CompanyReportGenerator 実装
-- [x] `scripts/show_company_report.py` - CLI 追加
+- [x] `scripts/ops/show_company_report.py` - CLI 追加
 - [x] `tests/unit/reports/test_formatters.py` - フォーマッターテスト追加
 
 **CLI 利用例:**
 
 ```bash
 # コンソール形式（デフォルト）
-python scripts/show_company_report.py 7203
+python scripts/ops/show_company_report.py 7203
 
 # Markdown 形式
-python scripts/show_company_report.py 7203 --format markdown
+python scripts/ops/show_company_report.py 7203 --format markdown
 
 # CSV 形式、10年分
-python scripts/show_company_report.py 7203 --format csv --years 10
+python scripts/ops/show_company_report.py 7203 --format csv --years 10
 
 # EDINETコードで検索
-python scripts/show_company_report.py --edinet E12345
+python scripts/ops/show_company_report.py --edinet E12345
 ```
 
 **出力サンプル（コンソール形式）:**
@@ -677,7 +677,7 @@ class CompanyReportGenerator:
 #### CLI統合
 
 ```python
-# scripts/show_company_report.py
+# scripts/ops/show_company_report.py
 """銘柄のレポートを表示するCLIスクリプト."""
 import argparse
 
@@ -717,26 +717,26 @@ if __name__ == "__main__":
 - [x] `src/analytics/screeners/growth/eps_growth.py` - EPS成長率スクリーナー
 - [x] `src/analytics/screeners/growth/revenue_growth.py` - 売上高成長率スクリーナー
 - [x] `src/analytics/screeners/value/profit_margin.py` - 営業利益率スクリーナー
-- [x] `scripts/run_screener.py` - CLI 追加
+- [x] `scripts/ops/run_screener.py` - CLI 追加
 - [x] `tests/unit/analytics/` - テスト追加
 
 **CLI 利用例:**
 
 ```bash
 # 利用可能なスクリーナー一覧
-python scripts/run_screener.py --list
+python scripts/ops/run_screener.py --list
 
 # EPS成長率で評価
-python scripts/run_screener.py --name eps_growth --ticker 7203
+python scripts/ops/run_screener.py --name eps_growth --ticker 7203
 
 # 売上高成長率で評価（5年、15%以上）
-python scripts/run_screener.py --name revenue_growth --ticker 7203 --years 5 --min-growth 0.15
+python scripts/ops/run_screener.py --name revenue_growth --ticker 7203 --years 5 --min-growth 0.15
 
 # 営業利益率で評価（10%以上）
-python scripts/run_screener.py --name profit_margin --ticker 7203 --min-margin 0.10
+python scripts/ops/run_screener.py --name profit_margin --ticker 7203 --min-margin 0.10
 
 # JSON形式で出力
-python scripts/run_screener.py --name eps_growth --ticker 7203 --json
+python scripts/ops/run_screener.py --name eps_growth --ticker 7203 --json
 ```
 
 **スクリーナー追加手順:**
@@ -872,11 +872,35 @@ src/
 
 1. [x] `src/query/repositories/` ディレクトリ作成・基本実装 ← Phase 1 完了
 2. [x] `src/query/timeseries.py` 実装 ← Phase 1 完了
-3. [x] `scripts/show_company_report.py` 作成 - 動作確認 ← Phase 2 完了
+3. [x] `scripts/ops/show_company_report.py` 作成 - 動作確認 ← Phase 2 完了
 4. [x] `src/analytics/registry.py` + `screeners/_base.py` 実装 ← Phase 3 完了
 5. [x] 既存の `edinet_*` ファイルをサブディレクトリへ移動 ← Phase 4 完了
 
 **全フェーズ完了！** アーキテクチャドキュメントと実装が一致しています。
+
+---
+
+## 7. 現行ディレクトリ構成（2026-05 時点）
+
+```
+scripts/
+├── ops/                        # 日常運用
+│   ├── bulk_download_edinet.py # ダウンロード＆DBロード（推奨）
+│   ├── load_edinet_to_db.py    # DBロードのみ
+│   ├── show_company_report.py  # 銘柄レポート
+│   └── run_screener.py         # スクリーナー実行
+└── maintenance/                # メンテナンス（要 --execute）
+    ├── reparse_all_filings.py  # 全件再パース
+    ├── reparse_filing.py       # 個別再パース
+    ├── backfill_tickers.py     # ticker 埋め戻し
+    ├── check_data_quality.py   # データ品質確認
+    └── oneoff/                 # 一回限り（実行済み）
+        ├── dedup_filings.py
+        └── reparse_missing_netsales.py
+```
+
+再パース共通ロジックは `src/ingest/edinet/reparse.py` に集約。
+DDL は `ddl/001_` → `002_` → `003_` の順に適用する。
 
 ---
 

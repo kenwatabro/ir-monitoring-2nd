@@ -174,6 +174,8 @@ docker run --name ir-monitoring-postgres \
 
 ```bash
 docker exec -i ir-monitoring-postgres psql -U ir_user -d ir_monitoring < ddl/001_core_financial_reporting.sql
+docker exec -i ir-monitoring-postgres psql -U ir_user -d ir_monitoring < ddl/002_edinet_scanned_dates.sql
+docker exec -i ir-monitoring-postgres psql -U ir_user -d ir_monitoring < ddl/003_add_unique_constraints.sql
 ```
 
 ### 3. 環境変数の設定
@@ -181,37 +183,26 @@ docker exec -i ir-monitoring-postgres psql -U ir_user -d ir_monitoring < ddl/001
 `.env`ファイルを作成し、EDINET APIキーを設定：
 
 ```bash
-cp env.example .env
+cp .env.example .env
 # .envファイルを編集してEDINET_API_KEYを設定
 ```
 
 ### 4. データのダウンロード
 
-#### macOS / Linux
+日常運用は `scripts/ops/bulk_download_edinet.py` を使用：
 
 ```bash
 source venv/bin/activate
-python -m src.download <start_date> <end_date> --database-url postgresql://ir_user:ir_password@localhost:5432/ir_monitoring
+
+# 2015年から今日まで全件取得（バックグラウンド推奨）
+python scripts/ops/bulk_download_edinet.py --start 2015-01-01 &
+
+# 特定期間のみ
+python scripts/ops/bulk_download_edinet.py --start 2024-01-01 --end 2024-01-31
 ```
 
-例：
-
-```bash
-python -m src.download 2024-01-01 2024-01-31 --database-url postgresql://ir_user:ir_password@localhost:5432/ir_monitoring
-```
-
-#### Windows
-
-```powershell
-venv\Scripts\activate
-python -m src.download <start_date> <end_date> --database-url postgresql://ir_user:ir_password@localhost:5432/ir_monitoring
-```
-
-例：
-
-```powershell
-python -m src.download 2024-01-01 2024-01-31 --database-url postgresql://ir_user:ir_password@localhost:5432/ir_monitoring
-```
+> **簡易CLI（互換用）:** `python -m src.download <start_date> <end_date>` でも動作しますが、
+> スキャン済み日付のスキップなど運用機能が省略されています。
 
 ## データベース接続
 
@@ -281,48 +272,40 @@ export PGURL="postgresql://ir_user:ir_password@localhost:5432/ir_monitoring"
 
 ---
 
-### 1. データダウンロード（EDINET API）
+### 1. データダウンロード＆ロード（EDINET API）
 
-EDINETから指定期間の財務書類をダウンロードします。
+ダウンロードとDBロードをまとめて行います（推奨）：
 
 ```bash
-python -m src.download <開始日> <終了日> [オプション]
+python scripts/ops/bulk_download_edinet.py --start <開始日> [--end <終了日>]
 ```
 
-**引数:**
-| 引数 | 説明 | 例 |
-|------|------|-----|
-| `開始日` | ダウンロード開始日（YYYY-MM-DD） | `2024-12-01` |
-| `終了日` | ダウンロード終了日（YYYY-MM-DD） | `2024-12-31` |
-
-**オプション:**
+**主なオプション:**
 | オプション | 説明 | デフォルト |
 |------------|------|-----------|
-| `--output-dir` | 保存先ディレクトリ | `data/raw` |
-| `--database-url` | メタデータ保存先DB URL | なし |
+| `--start` | ダウンロード開始日（YYYY-MM-DD） | 必須 |
+| `--end` | ダウンロード終了日（YYYY-MM-DD） | 今日 |
+| `--download-only` | ダウンロードのみ（DBロードなし） | - |
+| `--load-only` | DBロードのみ（既存ZIPを対象） | - |
 
 **使用例:**
 
 ```bash
-# 2024年12月のデータをダウンロード（DBへのメタデータ保存なし）
-python -m src.download 2024-12-01 2024-12-31
+# 2024年12月のデータをダウンロード＆ロード
+python scripts/ops/bulk_download_edinet.py --start 2024-12-01 --end 2024-12-31
 
-# ダウンロードしてメタデータをDBに保存
-python -m src.download 2024-12-01 2024-12-31 \
-  --database-url postgresql://ir_user:ir_password@localhost:5432/ir_monitoring
-
-# 保存先を指定
-python -m src.download 2024-12-01 2024-12-31 --output-dir data/raw/edinet
+# 全期間を一括取得（バックグラウンド）
+python scripts/ops/bulk_download_edinet.py --start 2015-01-01 &
 ```
 
 ---
 
-### 2. データベースへのロード
+### 2. データベースへのロード（ZIPが既にある場合）
 
-ダウンロードしたXBRLファイルを解析してデータベースに格納します。
+ダウンロード済みZIPを解析してデータベースに格納します。
 
 ```bash
-python scripts/load_edinet_to_db.py [オプション]
+python scripts/ops/load_edinet_to_db.py [オプション]
 ```
 
 **オプション:**
@@ -334,10 +317,10 @@ python scripts/load_edinet_to_db.py [オプション]
 
 ```bash
 # 全ファイルをロード
-python scripts/load_edinet_to_db.py
+python scripts/ops/load_edinet_to_db.py
 
 # 最初の20件のみロード（テスト用）
-python scripts/load_edinet_to_db.py --max-files 20
+python scripts/ops/load_edinet_to_db.py --max-files 20
 ```
 
 ---
@@ -347,7 +330,7 @@ python scripts/load_edinet_to_db.py --max-files 20
 指定銘柄の財務推移レポートを生成します。
 
 ```bash
-python scripts/show_company_report.py [銘柄コード] [オプション]
+python scripts/ops/show_company_report.py [銘柄コード] [オプション]
 ```
 
 **引数:**
@@ -366,19 +349,19 @@ python scripts/show_company_report.py [銘柄コード] [オプション]
 
 ```bash
 # 証券コードで検索してコンソール出力
-python scripts/show_company_report.py 7203
+python scripts/ops/show_company_report.py 7203
 
 # EDINETコードで検索
-python scripts/show_company_report.py --edinet E02275-000
+python scripts/ops/show_company_report.py --edinet E02275-000
 
 # Markdown形式で出力
-python scripts/show_company_report.py 7203 --format markdown
+python scripts/ops/show_company_report.py 7203 --format markdown
 
 # CSV形式で10年分を出力
-python scripts/show_company_report.py 7203 --format csv --years 10
+python scripts/ops/show_company_report.py 7203 --format csv --years 10
 
 # 古いデータがある場合は年数を増やす
-python scripts/show_company_report.py --edinet E02275-000 --years 10
+python scripts/ops/show_company_report.py --edinet E02275-000 --years 10
 ```
 
 **出力例（console）:**
@@ -401,10 +384,10 @@ python scripts/show_company_report.py --edinet E02275-000 --years 10
 
 ### 4. スクリーナー実行
 
-設定した条件で銘柄をスクリーニングします。
+設定した条件で銘柄をスクリーニングします。`--ticker` は必須です。
 
 ```bash
-python scripts/run_screener.py [オプション]
+python scripts/ops/run_screener.py [オプション]
 ```
 
 **オプション:**
@@ -412,10 +395,11 @@ python scripts/run_screener.py [オプション]
 |------------|------|-----------|
 | `--list` | 利用可能なスクリーナーを表示 | - |
 | `--name` | 実行するスクリーナー名 | - |
+| `--ticker` | 評価する証券コード（必須） | - |
 | `--years` | 分析対象年数 | `5` |
-| `--min-growth` | 最低成長率（eps_growth, revenue_growth用） | スクリーナー依存 |
+| `--min-growth` | 最低成長率（eps_growth, revenue_growth用） | `0.15` |
 | `--min-margin` | 最低利益率（profit_margin用） | `0.10` |
-| `--output` | 結果出力ファイル（JSON） | なし |
+| `--json` | 結果をJSON形式で出力 | - |
 
 **利用可能なスクリーナー:**
 | 名前 | 説明 |
@@ -428,19 +412,19 @@ python scripts/run_screener.py [オプション]
 
 ```bash
 # 利用可能なスクリーナーを表示
-python scripts/run_screener.py --list
+python scripts/ops/run_screener.py --list
 
 # EPS成長スクリーナーを実行
-python scripts/run_screener.py --name eps_growth
+python scripts/ops/run_screener.py --name eps_growth --ticker 7203
 
 # 売上成長率20%以上でスクリーニング
-python scripts/run_screener.py --name revenue_growth --min-growth 0.20
+python scripts/ops/run_screener.py --name revenue_growth --ticker 7203 --min-growth 0.20
 
 # 営業利益率15%以上でスクリーニング
-python scripts/run_screener.py --name profit_margin --min-margin 0.15
+python scripts/ops/run_screener.py --name profit_margin --ticker 7203 --min-margin 0.15
 
-# 結果をJSONファイルに出力
-python scripts/run_screener.py --name eps_growth --output results.json
+# 結果をJSON形式で出力
+python scripts/ops/run_screener.py --name eps_growth --ticker 7203 --json
 ```
 
 **出力例:**
@@ -464,14 +448,14 @@ export PGURL="postgresql://ir_user:ir_password@localhost:5432/ir_monitoring"
 # 2. 直近1週間のデータをダウンロード
 python -m src.download 2024-12-20 2024-12-27 --output-dir data/raw/edinet
 
-# 3. データベースにロード（最初は20件でテスト）
-python scripts/load_edinet_to_db.py --max-files 20
+# 3. ロードのみ試す場合（最初は20件でテスト）
+python scripts/ops/load_edinet_to_db.py --max-files 20
 
 # 4. 銘柄のレポートを確認
-python scripts/show_company_report.py --edinet E02275-000 --years 10
+python scripts/ops/show_company_report.py --edinet E02275-000 --years 10
 
-# 5. スクリーナーで銘柄抽出
-python scripts/run_screener.py --name profit_margin --min-margin 0.15
+# 5. スクリーナーで銘柄評価
+python scripts/ops/run_screener.py --name profit_margin --ticker 7203 --min-margin 0.15
 ```
 
 ---
@@ -498,7 +482,10 @@ ir-monitoring-2nd/
 │   └── analytics/         # 分析・スクリーニング
 │       ├── registry.py    # スクリーナーレジストリ
 │       └── screeners/     # 各種スクリーナー
-├── scripts/               # CLIスクリプト
+├── scripts/
+│   ├── ops/               # 日常運用スクリプト
+│   └── maintenance/       # メンテナンス用スクリプト
+│       └── oneoff/        # 一回限りの修正スクリプト
 ├── ddl/                   # データベーススキーマ定義
 ├── data/raw/              # ダウンロードした生データ
 └── tests/                 # テストコード

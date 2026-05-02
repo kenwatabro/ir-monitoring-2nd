@@ -8,9 +8,9 @@ PL/CF/BS サマリーを再計算し、既存の statement_items の value_numer
 デフォルトはドライラン。--execute で実行。
 
 Usage:
-    python scripts/reparse_missing_netsales.py                # ドライラン
-    python scripts/reparse_missing_netsales.py --limit 10     # 10件だけ試す
-    python scripts/reparse_missing_netsales.py --execute      # 全件実行
+    python scripts/maintenance/oneoff/reparse_missing_netsales.py                # ドライラン
+    python scripts/maintenance/oneoff/reparse_missing_netsales.py --limit 10     # 10件だけ試す
+    python scripts/maintenance/oneoff/reparse_missing_netsales.py --execute      # 全件実行
 """
 
 from __future__ import annotations

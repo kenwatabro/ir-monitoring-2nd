@@ -2,10 +2,10 @@
 """銘柄のレポートを表示するCLIスクリプト.
 
 Usage:
-    python scripts/show_company_report.py 7203
-    python scripts/show_company_report.py 7203 --format markdown
-    python scripts/show_company_report.py 7203 --format csv --years 10
-    python scripts/show_company_report.py --edinet E12345 --format console
+    python scripts/ops/show_company_report.py 7203
+    python scripts/ops/show_company_report.py 7203 --format markdown
+    python scripts/ops/show_company_report.py 7203 --format csv --years 10
+    python scripts/ops/show_company_report.py --edinet E12345 --format console
 """
 
 from __future__ import annotations
